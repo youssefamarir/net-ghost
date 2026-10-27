@@ -1,0 +1,143 @@
+<!-- Bluetooth transport for the Net Ghost GUI.
+     tools/make_web.py inserts this into web/index.html to make web/ble.html.
+     The GUI's own fetch('/api/...') calls are carried over Bluetooth LE to the tester. -->
+<style>
+#bt-ov{position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;padding:20px;
+  background:radial-gradient(circle at 50% 30%,#1d3550 0,#0d1620 70%)}
+#bt-ov[hidden]{display:none}
+#bt-card{width:100%;max-width:380px;text-align:center;background:var(--panel);border:1px solid var(--line);
+  border-radius:var(--r-lg);padding:28px 22px;box-shadow:0 20px 60px #0008}
+#bt-ring{width:96px;height:96px;margin:0 auto 18px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  border:3px solid var(--bt);color:var(--bt);font-size:40px;font-weight:700;position:relative}
+#bt-ring.spin::after{content:"";position:absolute;inset:-9px;border-radius:50%;border:3px solid transparent;
+  border-top-color:var(--data);animation:btspin 1s linear infinite}
+@keyframes btspin{to{transform:rotate(360deg)}}
+#bt-card h1{font-size:22px;margin-bottom:4px}#bt-card h1 b{color:var(--data)}
+#bt-card p{color:var(--dim);font-size:14px;margin:8px 0}
+#bt-go{margin-top:14px;width:100%;padding:14px;border-radius:999px;border:0;background:var(--bt);color:#160f2e;
+  font-weight:700;font-size:16px;letter-spacing:.5px;cursor:pointer}
+#bt-go:disabled{opacity:.5}
+#bt-st{min-height:21px;color:var(--text)!important}
+#bt-pill{position:fixed;right:12px;bottom:calc(84px + env(safe-area-inset-bottom));z-index:30;padding:6px 12px;
+  border-radius:999px;background:#2a2150;border:1px solid var(--bt);color:var(--bt);font-size:12px;font-weight:600}
+#bt-pill[hidden]{display:none}
+</style>
+<div id="bt-ov">
+  <div id="bt-card">
+    <div id="bt-ring"><svg width="38" height="44" viewBox="0 0 24 28" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8l13 11-6 5V4l6 5L5 20"/></svg></div>
+    <h1>Net <b>Ghost</b></h1>
+    <p>Bluetooth GUI</p>
+    <button id="bt-go">Connect</button>
+    <p id="bt-st"></p>
+    <p>Pick <b>Net Ghost XXXX</b>. If asked for a PIN, type the 6 digits on the tester's screen.</p>
+    <p style="font-size:12px">Works in Chrome on Android, Windows, Mac and ChromeOS. On iPhone use the Bluefy browser.</p>
+  </div>
+</div>
+<div id="bt-pill" hidden>&#9679; Bluetooth</div>
+<script>
+(()=>{
+const SVC='c0de0000-4e41-4c4c-5942-555354455221';
+const U=x=>'c0de'+x+'-4e41-4c4c-5942-555354455221';
+const enc=new TextEncoder(),dec=new TextDecoder();
+const realFetch=window.fetch.bind(window);
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+let dev=null,reqC=null,rspC=null,ready=false,chain=Promise.resolve(),nextId=1,pend=null,manualClose=false;
+const ov=document.getElementById('bt-ov'),go=document.getElementById('bt-go'),st=document.getElementById('bt-st'),
+      ring=document.getElementById('bt-ring'),pill=document.getElementById('bt-pill');
+function status(t,busy){st.textContent=t;ring.classList.toggle('spin',!!busy)}
+
+function onNote(e){
+  const dv=e.target.value,v=new Uint8Array(dv.buffer,dv.byteOffset,dv.byteLength);
+  if(!pend||v.length<2||v[1]!==pend.id)return;
+  const t=String.fromCharCode(v[0]),d=v.slice(2);
+  if(t==='H'){const s=dec.decode(d).split('\n');pend.status=parseInt(s[0])||502;pend.type=s[1]||'text/plain'}
+  else if(t==='D')pend.parts.push(d);
+  else if(t==='E'){const p=pend;pend=null;clearTimeout(p.timer);
+    const s=p.status>=200&&p.status<=599?p.status:502;
+    p.resolve(new Response(new Blob(p.parts,{type:p.type}),{status:s,headers:{'Content-Type':p.type}}))}
+}
+
+// one request at a time; each is written in pieces: [flags][id] data (flags bit0 = last piece)
+function send(text){
+  const job=chain.then(()=>new Promise(async(resolve,reject)=>{
+    if(!ready||!reqC){reject(new TypeError('Bluetooth not connected'));return}
+    const id=nextId=(nextId%250)+1,bytes=enc.encode(text),N=180;
+    pend={id,parts:[],status:0,type:'text/plain',resolve,
+          timer:setTimeout(()=>{if(pend&&pend.id===id){pend=null;reject(new TypeError('Bluetooth timeout'))}},20000)};
+    try{
+      for(let o=0;o<bytes.length||o===0;o+=N){
+        const piece=bytes.subarray(o,o+N),last=o+N>=bytes.length,f=new Uint8Array(piece.length+2);
+        f[0]=last?1:0;f[1]=id;f.set(piece,2);
+        await (reqC.writeValueWithResponse?reqC.writeValueWithResponse(f):reqC.writeValue(f));
+        if(last)break;
+      }
+    }catch(err){if(pend&&pend.id===id){clearTimeout(pend.timer);pend=null}reject(new TypeError(err.message||'Bluetooth write failed'))}
+  }));
+  chain=job.catch(()=>{});
+  return job;
+}
+
+window.fetch=(u,o={})=>{
+  const url=typeof u==='string'?u:(u&&u.url)||'';
+  if(!url.startsWith('/api/'))return realFetch(u,o);
+  const m=(o.method||'GET').toUpperCase();
+  const body=o.body==null?'':String(o.body);
+  return send(m+' '+url+(m==='POST'?'\n'+body:''));
+};
+
+// downloads (pcap, report) go over Bluetooth too
+document.addEventListener('click',e=>{
+  const a=e.target.closest&&e.target.closest('a[href^="/api/"]');if(!a)return;
+  e.preventDefault();
+  window.fetch(a.getAttribute('href')).then(r=>r.blob()).then(b=>{
+    const u=URL.createObjectURL(b),x=document.createElement('a');x.href=u;
+    if(a.hasAttribute('download'))x.download=a.getAttribute('download')||'download';else x.target='_blank';
+    document.body.appendChild(x);x.click();x.remove();setTimeout(()=>URL.revokeObjectURL(u),60000)})
+   .catch(()=>alert('Download failed over Bluetooth'));
+},true);
+
+async function open(){
+  status('Connecting...',true);
+  const srv=await dev.gatt.connect();
+  const s=await srv.getPrimaryService(SVC);
+  reqC=await s.getCharacteristic(U('0040'));
+  rspC=await s.getCharacteristic(U('0041'));
+  rspC.addEventListener('characteristicvaluechanged',onNote);
+  await rspC.startNotifications();
+  ready=true;
+  // the first request fails until the phone has paired with the PIN; keep trying for a minute
+  status('If asked, type the PIN shown on the tester',true);
+  for(let i=0;i<30;i++){
+    try{const r=await window.fetch('/api/settings');if(r.ok)break}catch(e){}
+    if(!dev.gatt.connected)throw new Error('Disconnected - try again');
+    await sleep(2000);
+  }
+  status('Connected',false);
+  ov.hidden=true;pill.hidden=false;
+  if(typeof toast==='function')toast('Connected over Bluetooth');
+}
+
+async function onDisc(){
+  ready=false;reqC=rspC=null;pill.hidden=true;
+  if(pend){const p=pend;pend=null;clearTimeout(p.timer)}
+  if(manualClose)return;
+  ov.hidden=false;go.textContent='Reconnect';status('Connection lost - reconnecting...',true);
+  for(let i=0;i<3&&dev;i++){try{await open();return}catch(e){await sleep(1500)}}
+  status('Tester out of range or off. Tap Reconnect.',false);
+}
+
+go.onclick=async()=>{
+  if(!navigator.bluetooth){status('This browser has no Web Bluetooth. Use Chrome, or Bluefy on iPhone.');return}
+  go.disabled=true;
+  try{
+    if(!dev){
+      dev=await navigator.bluetooth.requestDevice({filters:[{services:[SVC]},{namePrefix:'Net Ghost'}],optionalServices:[SVC]});
+      dev.addEventListener('gattserverdisconnected',onDisc);
+    }
+    await open();
+  }catch(e){status(e&&e.name==='NotFoundError'?'No tester picked.':(e.message||String(e)),false)}
+  go.disabled=false;
+};
+if(!window.isSecureContext)status('Open this page over https:// for Bluetooth to work.');
+})();
+</script>

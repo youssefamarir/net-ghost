@@ -1,0 +1,958 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#13202E">
+<title>Net Ghost</title>
+<style>
+:root{
+  --chassis:#13202E; --panel:#1A2B3D; --panel2:#203449; --line:#2A3E54;
+  --text:#E8EEF5; --dim:#8DA2B8; --faint:#5C7189;
+  --data:#5CD3F0; --pass:#57D68D; --warn:#F2B84B; --fail:#F0625D; --bt:#A88BFA;
+  --r-lg:18px; --r-sm:10px;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:var(--chassis);color:var(--text);
+  font:calc(15px * var(--text-scale))/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  -webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}
+body{padding-bottom:calc(76px + env(safe-area-inset-bottom))}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--data);outline-offset:2px}
+.mono{font-family:var(--mono);font-size:.92em}
+
+/* ---------- top strip ---------- */
+.top{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:12px;
+  padding:12px 18px;padding-top:calc(12px + env(safe-area-inset-top));
+  background:rgba(19,32,46,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:baseline;gap:7px;font-weight:700;letter-spacing:.2px}
+.brand b{color:var(--data);font-size:calc(19px * var(--text-scale))}
+.brand span{color:var(--dim);font-weight:500;font-size:calc(14px * var(--text-scale))}
+.leds{margin-left:auto;display:flex;gap:10px;align-items:center;font-size:calc(12px * var(--text-scale));color:var(--dim)}
+.led{display:flex;align-items:center;gap:5px;white-space:nowrap}
+.led i{width:8px;height:8px;border-radius:50%;background:var(--faint)}
+.led.on i{background:var(--pass);box-shadow:0 0 8px var(--pass)}
+.led.mid i{background:var(--warn)}
+.led.bt.on i{background:var(--bt);box-shadow:0 0 8px var(--bt)}
+.stale .led i{opacity:.35}
+
+main{max-width:1080px;margin:0 auto;padding:18px}
+.view{display:none}
+.view.on{display:block}
+.grid{display:grid;gap:16px}
+@media(min-width:860px){.grid.two{grid-template-columns:1.15fr 1fr}}
+
+/* ---------- hero: the port verdict ---------- */
+.hero{background:linear-gradient(160deg,#1E3349,#172839);border:1px solid var(--line);
+  border-radius:var(--r-lg);padding:22px 22px 18px;position:relative;overflow:hidden}
+.hero .where{color:var(--dim);font-size:calc(14px * var(--text-scale));min-height:20px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hero .port{font-size:clamp(44px,13vw,76px);font-weight:750;line-height:1.02;letter-spacing:-1.5px;
+  margin:6px 0 10px;word-break:break-all}
+.hero .port.idle{color:var(--faint);font-size:clamp(28px,8vw,40px);letter-spacing:-.5px}
+.facts{display:flex;flex-wrap:wrap;gap:8px 18px;color:var(--dim);font-size:calc(14px * var(--text-scale))}
+.facts b{color:var(--text);font-weight:600}
+.strip{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin-top:20px}
+.seg{height:30px;border-radius:7px;background:#14222F;border:1px solid var(--line);
+  display:flex;align-items:center;justify-content:center;font-size:calc(11px * var(--text-scale));color:var(--faint);
+  transition:background .35s,color .35s,border-color .35s,transform .35s}
+.seg.pass{background:rgba(87,214,141,.16);border-color:rgba(87,214,141,.5);color:var(--pass)}
+.seg.warn{background:rgba(242,184,75,.16);border-color:rgba(242,184,75,.5);color:var(--warn)}
+.seg.fail{background:rgba(240,98,93,.16);border-color:rgba(240,98,93,.5);color:var(--fail)}
+.seg.run{border-color:var(--data);color:var(--data);animation:pulse 1s ease-in-out infinite}
+.seg.pop{transform:scale(1.08)}
+@keyframes pulse{50%{background:rgba(92,211,240,.12)}}
+.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+
+/* ---------- controls ---------- */
+.btn{border:1px solid var(--line);background:var(--panel2);border-radius:999px;
+  padding:10px 18px;font-weight:600;cursor:pointer;transition:transform .12s,background .2s}
+.btn:active{transform:scale(.96)}
+.btn.go{background:var(--data);border-color:var(--data);color:#08202B}
+.btn[disabled]{opacity:.55;cursor:default}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-sm);padding:16px 18px}
+.panel h2{font-size:calc(16px * var(--text-scale));font-weight:650;margin-bottom:10px;display:flex;align-items:center;gap:10px}
+.panel h2 small{margin-left:auto;font-size:calc(13px * var(--text-scale));font-weight:500;color:var(--dim)}
+.rows{display:grid}
+.row{display:flex;justify-content:space-between;gap:14px;padding:9px 0;border-top:1px solid rgba(42,62,84,.6)}
+.row:first-child{border-top:0}
+.row span{color:var(--dim);flex:0 0 auto}
+.row b{font-weight:550;text-align:right;overflow-wrap:anywhere}
+.big{font-size:calc(34px * var(--text-scale));font-weight:700;letter-spacing:-.5px}
+.muted{color:var(--dim)}
+.note{color:var(--dim);font-size:calc(13px * var(--text-scale));margin-top:8px}
+canvas{display:block;width:100%}
+
+/* ---------- AutoTest list ---------- */
+.steps{display:grid;gap:2px}
+.step{display:grid;grid-template-columns:28px 1fr auto;gap:10px;align-items:center;padding:11px 0;border-top:1px solid rgba(42,62,84,.6)}
+.step:first-child{border-top:0}
+.dot{width:22px;height:22px;border-radius:50%;border:2px solid var(--faint)}
+.step.pass .dot{border-color:var(--pass);background:var(--pass)}
+.step.warn .dot{border-color:var(--warn);background:var(--warn)}
+.step.fail .dot{border-color:var(--fail);background:var(--fail)}
+.step.run .dot{border-color:var(--data);border-right-color:transparent;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.step .nm{font-weight:600}
+.step .inf{color:var(--dim);font-size:calc(13px * var(--text-scale))}
+.step .val{font-weight:650}
+.step.fail .val{color:var(--fail)} .step.warn .val{color:var(--warn)}
+
+/* ---------- Wi-Fi ---------- */
+.aps{display:grid}
+.ap{display:grid;grid-template-columns:26px 1fr auto;gap:10px;align-items:center;padding:9px 0;border-top:1px solid rgba(42,62,84,.6)}
+.ap:first-child{border-top:0}
+.bars{display:flex;gap:2px;align-items:flex-end;height:16px}
+.bars i{width:4px;background:var(--faint);border-radius:1px}
+.bars i:nth-child(1){height:5px}.bars i:nth-child(2){height:9px}.bars i:nth-child(3){height:13px}.bars i:nth-child(4){height:16px}
+.ap .sub{color:var(--dim);font-size:calc(12.5px * var(--text-scale))}
+.ap .open{color:var(--warn)}
+form.inline{display:grid;gap:10px;margin-top:6px}
+input{background:#122030;border:1px solid var(--line);border-radius:var(--r-sm);padding:11px 12px;width:100%}
+input::placeholder{color:var(--faint)}
+
+/* ---------- tools ---------- */
+.seg-ctl{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.seg-ctl button{border:1px solid var(--line);background:transparent;border-radius:999px;padding:7px 14px;cursor:pointer;color:var(--dim)}
+.seg-ctl button.on{background:var(--panel2);color:var(--text);border-color:var(--data)}
+.toolrow{display:flex;gap:8px}
+.toolrow input{flex:1}
+pre.term{margin-top:12px;background:#0E1823;border:1px solid var(--line);border-radius:var(--r-sm);
+  padding:12px;min-height:210px;max-height:46vh;overflow:auto;font:calc(13px * var(--text-scale))/1.5 var(--mono);color:#BFE9F5;white-space:pre-wrap}
+
+
+/* ---------- bottom tabs ---------- */
+nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:30;display:flex;justify-content:space-around;
+  background:rgba(19,32,46,.96);backdrop-filter:blur(10px);border-top:1px solid var(--line);
+  padding:6px 4px calc(6px + env(safe-area-inset-bottom))}
+nav.tabs button{flex:1;background:none;border:0;padding:6px 2px;cursor:pointer;color:var(--faint);
+  display:flex;flex-direction:column;align-items:center;gap:3px;font-size:calc(11.5px * var(--text-scale));font-weight:600}
+nav.tabs svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+nav.tabs button.on{color:var(--data)}
+@media(min-width:860px){nav.tabs{position:sticky;top:57px;bottom:auto;justify-content:center;gap:6px;border-top:0;border-bottom:1px solid var(--line)}
+  nav.tabs button{flex:0 0 auto;flex-direction:row;padding:10px 14px;font-size:calc(14px * var(--text-scale))}
+  body{padding-bottom:0}}
+
+.toast{position:fixed;left:50%;bottom:calc(88px + env(safe-area-inset-bottom));transform:translate(-50%,30px);
+  background:var(--panel2);border:1px solid var(--line);padding:10px 16px;border-radius:999px;opacity:0;
+  transition:opacity .25s,transform .25s;pointer-events:none;z-index:40;white-space:nowrap}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+/* header extras */
+.gear{background:none;border:0;color:var(--dim);cursor:pointer;padding:4px;margin-left:4px;display:flex}
+.gear svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8}
+.gear.on{color:var(--data)}
+.led.batt i{border-radius:2px;width:12px;height:7px}
+.led.batt.low i{background:var(--fail)} .led.batt.ok i{background:var(--pass)} .led.batt.chg i{background:var(--data)}
+/* alerts */
+.alerts{display:grid;gap:8px}
+.al{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border-radius:var(--r-sm);background:#16263A;border-left:3px solid var(--faint)}
+.al.l1{border-left-color:var(--warn)} .al.l2{border-left-color:var(--fail);background:rgba(240,98,93,.08)}
+.al.l0{border-left-color:#60A5FA}
+.al b{font-weight:550}
+.clear{color:var(--pass);font-weight:600}
+/* packets */
+.pbar{display:grid;grid-template-columns:76px 1fr 46px;gap:10px;align-items:center;padding:5px 0}
+.pbar .tr{height:9px;border-radius:5px;background:#14222F;overflow:hidden}
+.pbar .tr i{display:block;height:100%;border-radius:5px;transition:width .6s cubic-bezier(.2,.8,.2,1)}
+.pbar span{color:var(--dim)} .pbar b{text-align:right;font-weight:600}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+.chip{background:#16263A;border:1px solid var(--line);border-radius:999px;padding:4px 10px;font-size:calc(13px * var(--text-scale));color:var(--dim)}
+.chip b{color:var(--text);font-weight:600;margin-left:4px}
+.plist{font:calc(12.5px * var(--text-scale))/1.4 var(--mono);max-height:60vh;overflow:auto;border:1px solid var(--line);border-radius:var(--r-sm);background:#0E1823}
+.pk{display:grid;grid-template-columns:52px 66px 1fr;gap:8px;padding:6px 10px;border-top:1px solid rgba(42,62,84,.5)}
+.pk:first-child{border-top:0}
+.pk .pp{font-weight:700;color:var(--data)}
+.pk .pi{color:#BFE9F5;overflow-wrap:anywhere}
+.pk .ps{color:var(--faint);grid-column:2/4;font-size:calc(11.5px * var(--text-scale));overflow-wrap:anywhere}
+.pk .pt{color:var(--faint)}
+.pk.ARP .pp{color:var(--warn)} .pk.DHCP .pp{color:var(--pass)} .pk.STP .pp,.pk.LLDP .pp,.pk.CDP .pp{color:#FB923C}
+.pk.ICMPv6 .pp,.pk.IPv6 .pp{color:var(--bt)}
+/* settings */
+.fld{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;padding:10px 0;border-top:1px solid rgba(42,62,84,.6)}
+.fld>span{color:var(--dim)}
+.fld select,.fld input[type=text],.fld input[type=password]{background:#122030;border:1px solid var(--line);border-radius:8px;padding:8px 10px;min-width:150px}
+.fld input[type=range]{width:150px;accent-color:var(--data)}
+.fld.stack{grid-template-columns:1fr;gap:6px}
+.fld.stack input{width:100%}
+#k-talk .row b{white-space:nowrap}
+.fld output{grid-column:2;text-align:right;color:var(--dim);font-size:calc(13px * var(--text-scale))}
+.sw{position:relative;width:44px;height:26px;flex:0 0 auto}
+.sw input{opacity:0;width:0;height:0;position:absolute}
+.sw i{position:absolute;inset:0;border-radius:13px;background:#24364A;transition:background .2s;cursor:pointer}
+.sw i::after{content:"";position:absolute;left:3px;top:3px;width:20px;height:20px;border-radius:50%;background:#E8EEF5;transition:transform .2s}
+.sw input:checked+i{background:var(--data)} .sw input:checked+i::after{transform:translateX(18px)}
+.sw input:focus-visible+i{outline:2px solid var(--data);outline-offset:2px}
+.sub-h{font-size:calc(14px * var(--text-scale));font-weight:650;margin:18px 0 2px;color:var(--text)}
+.btn.bad{border-color:rgba(240,98,93,.5);color:var(--fail)}
+a.btn{text-decoration:none;display:inline-block;color:var(--text)}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* v1.5: accessible dark field UI, brighter accents and scalable text */
+:root { --text-scale:1; --chassis:#091322; --panel:#13243b; --panel2:#1b3652;
+ --line:#35506b; --text:#f5faff; --dim:#b7cce0; --data:#43d9ff;
+ --pass:#63f5ab; --warn:#ffce65; --fail:#ff7f86; --bt:#bba0ff; }
+body{background:radial-gradient(ellipse at 10% 0,#143451 0,transparent 48%),var(--chassis)}
+.panel{background:linear-gradient(145deg,#19314d,#101e33);border:1px solid var(--line);box-shadow:0 10px 30px #0003}
+.panel h2{color:var(--data)}
+.panel.accent-orange{border-top:3px solid #ff9e4a}
+.panel.accent-pink{border-top:3px solid #ff8ed4}
+.panel.accent-cyan{border-top:3px solid var(--data)}
+.meters{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:18px 0}
+.meter{padding:18px 12px;border:1px solid #42607c;border-radius:14px;background:#071421}
+.meter strong{display:block;color:var(--pass);font-size:calc(36px * var(--text-scale));font-weight:800}
+.meter:nth-child(2) strong{color:var(--data)}
+.meter small{color:var(--dim)}
+.progress{height:8px;overflow:hidden;background:#071421;border-radius:10px;margin:12px 0}
+.progress i{display:block;height:100%;width:0;background:linear-gradient(90deg,#52d7ff,#ec84ff);transition:width .5s}
+.badge{padding:6px 10px;border-radius:8px;background:#324963;color:var(--warn);display:inline-block;font-weight:650}
+.row{gap:16px}.row span{flex-shrink:0;max-width:48%}.row b{min-width:0}
+nav.tabs{overflow-x:auto;justify-content:flex-start;scrollbar-width:thin;gap:4px}
+nav.tabs button{min-width:68px;flex:1 0 auto}
+body.high-contrast{--dim:#d4e3f2;--faint:#a4bad0;--line:#58718b}
+body.reduced-motion *,body.reduced-motion *::before,body.reduced-motion *::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}
+@media(min-width:860px){nav.tabs{justify-content:center}nav.tabs button{flex:0 0 auto}}
+@media(max-width:430px){.meters{gap:8px}.meter{padding:12px 8px}.meter strong{font-size:calc(29px * var(--text-scale))}}
+
+
+.grid{min-width:0;grid-template-columns:minmax(0,1fr)}
+.grid>*{min-width:0}.panel,.hero{min-width:0;max-width:100%}
+.ap{grid-template-columns:26px minmax(0,1fr) auto}.ap>div{min-width:0;overflow-wrap:anywhere}
+.strip{grid-template-columns:repeat(6,minmax(0,1fr))}.seg{min-width:0}
+.fld{grid-template-columns:minmax(0,1fr) auto}.fld select{max-width:165px}
+@media(max-width:600px){.strip{grid-template-columns:repeat(3,minmax(0,1fr))}.panel h2{flex-wrap:wrap}.panel h2 small{margin-left:0}.facts{gap:8px 12px}.row span{overflow-wrap:anywhere}}
+.al{min-width:0;grid-template-columns:60px minmax(0,1fr)}.al span{min-width:0;overflow-wrap:anywhere}
+</style>
+</head>
+<body>
+<header class="top" id="top">
+  <div class="brand"><span>Net</span><b>Ghost</b></div>
+  <div class="leds">
+    <div class="led" id="l-eth"><i></i>ETH</div>
+    <div class="led" id="l-wifi"><i></i>Wi-Fi</div>
+    <div class="led bt" id="l-bt"><i></i>BT</div>
+    <div class="led batt" id="l-batt" hidden><i></i><span id="l-batt-t"></span></div>
+  </div>
+  <button class="gear" id="b-gear" aria-label="Settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 0 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 0 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 0 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 0 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
+</header>
+
+<nav class="tabs" id="tabs">
+  <button data-v="port" class="on"><svg viewBox="0 0 24 24"><rect x="4" y="6" width="16" height="12" rx="2"/><path d="M8 18v-3h8v3M9 10h1M14 10h1"/></svg>Port</button>
+  <button data-v="test"><svg viewBox="0 0 24 24"><path d="M5 12l4 4L19 6"/></svg>Test</button>
+  <button data-v="pkt"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Packets</button>
+  <button data-v="wifi"><svg viewBox="0 0 24 24"><path d="M2 9a15 15 0 0 1 20 0M5.5 12.5a10 10 0 0 1 13 0M9 16a5 5 0 0 1 6 0"/><circle cx="12" cy="19.5" r=".8"/></svg>Wi-Fi</button>
+  <button data-v="tools"><svg viewBox="0 0 24 24"><path d="M4 17l6-6-6-6M12 19h8"/></svg>Tools</button>
+  <button data-v="dev"><svg viewBox="0 0 24 24"><rect x="6" y="3" width="12" height="18" rx="2"/><path d="M10 17h4"/></svg>Device</button>
+<button data-v="cable"><svg viewBox="0 0 24 24"><path d="M8 3h8v6H8zM12 9v5a5 5 0 0 0 5 5h4M4 21v-6h6v6z"/></svg>Cable</button><button data-v="poe"><svg viewBox="0 0 24 24"><path d="M13 2 4 14h7l-1 8 10-13h-7z"/></svg>PoE</button><button data-v="swcfg"><svg viewBox="0 0 24 24"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM4 12h3M17 12h3M12 4v3M12 17v3"/></svg>Config</button>
+</nav>
+
+<main>
+<!-- ===================== PORT ===================== -->
+<section class="view on" id="v-port">
+  <div class="grid two">
+    <div>
+      <div class="hero">
+        <div class="where" id="h-where">Plug the tester into a wall jack or switch port</div>
+        <div class="port idle" id="h-port">No link</div>
+        <div class="facts" id="h-facts"></div>
+        <div class="strip" id="strip"></div>
+        <div class="actions">
+          <button class="btn go" id="b-test">Run AutoTest</button>
+          <button class="btn" id="b-blink">Blink port LED</button>
+        </div>
+      </div>
+      <div class="panel" style="margin-top:16px">
+        <h2>Traffic on the wire <small id="p-rate"></small></h2>
+        <canvas id="c-fps" height="90"></canvas>
+        <div class="rows" style="margin-top:8px">
+          <div class="row"><span>Broadcast / multicast</span><b id="p-bcmc">--</b></div>
+          <div class="row"><span>Frames seen</span><b id="p-rx">--</b></div>
+          <div class="row"><span>ARP frames</span><b id="p-arp">--</b></div>
+          <div class="row"><span>Link up for</span><b id="p-up">--</b></div>
+          <div class="row"><span>Link drops</span><b id="p-flaps">--</b></div>
+        </div>
+      </div>
+      <div class="panel" style="margin-top:16px">
+        <h2>Cable &amp; link <small id="c-verdict"></small></h2>
+        <div class="rows">
+          <div class="row"><span>Tester side</span><b id="c-me">--</b></div>
+          <div class="row"><span>Switch side</span><b id="c-sw">--</b></div>
+          <div class="row"><span>Switch port supports</span><b id="c-can">--</b></div>
+          <div class="row"><span>Drops in last 10 min</span><b id="c-drops">--</b></div>
+          <div class="row"><span>Packet loss (100 pings)</span><b id="c-loss">not tested</b></div>
+          <div class="row"><span>Latency / jitter</span><b id="c-lat">--</b></div>
+          <div class="row"><span>Internet download</span><b id="c-speed">not tested</b></div>
+        </div>
+        <div class="actions">
+          <button class="btn go" id="b-qual">Test link quality</button>
+          <button class="btn" id="b-speed">Speed test</button>
+          <button class="btn" id="b-renew">Renew DHCP</button>
+        </div>
+        <p class="note">The W5500 can't measure cable length or check individual pairs; that needs a PHY with TDR. These checks catch the usual bad-cable signs instead: no link, a drop to 10 Mb or half duplex, a duplex mismatch with the switch, link drops, and packet loss.</p>
+      </div>
+    </div>
+    <div class="grid">
+      <div class="panel">
+        <h2>Network alerts <small id="al-count"></small></h2>
+        <div class="alerts" id="al-list"><p class="clear">Nothing wrong spotted on this port.</p></div>
+      </div>
+      <div class="panel">
+        <h2>Switch <small id="s-proto"></small></h2>
+        <div class="rows">
+          <div class="row"><span>Name</span><b id="s-name">--</b></div>
+          <div class="row"><span>Port</span><b id="s-port">--</b></div>
+          <div class="row"><span>Port description</span><b id="s-pdesc">--</b></div>
+          <div class="row"><span>Data VLAN</span><b id="s-vlan">--</b></div>
+          <div class="row"><span>Voice VLAN</span><b id="s-voice">--</b></div>
+          <div class="row"><span>Mode</span><b id="s-mode">--</b></div>
+          <div class="row"><span>Management IP</span><b class="mono" id="s-mgmt">--</b></div>
+          <div class="row"><span>Model</span><b id="s-model">--</b></div>
+          <div class="row"><span>Software</span><b id="s-ver">--</b></div>
+          <div class="row"><span>Capabilities</span><b id="s-caps">--</b></div>
+          <div class="row"><span>Duplex (switch side)</span><b id="s-duplex">--</b></div>
+          <div class="row"><span>PoE</span><b id="s-poe">--</b></div>
+          <div class="row"><span>Spanning tree root</span><b class="mono" id="s-stp">--</b></div>
+          <div class="row"><span>Last announcement</span><b id="s-age">--</b></div>
+        </div>
+      </div>
+      <div class="panel">
+        <h2>IP config</h2>
+        <div class="rows">
+          <div class="row"><span>Address</span><b class="mono" id="i-ip">--</b></div>
+          <div class="row"><span>Subnet mask</span><b class="mono" id="i-mask">--</b></div>
+          <div class="row"><span>Gateway</span><b class="mono" id="i-gw">--</b></div>
+          <div class="row"><span>DNS</span><b class="mono" id="i-dns">--</b></div>
+          <div class="row"><span>DHCP server</span><b class="mono" id="i-dhcp">--</b></div>
+          <div class="row"><span>Lease</span><b id="i-lease">--</b></div>
+          <div class="row"><span>Tester MAC</span><b class="mono" id="i-mac">--</b></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== TEST ===================== -->
+<section class="view" id="v-test">
+  <div class="grid two">
+    <div class="panel">
+      <h2>AutoTest <small id="t-sum"></small></h2>
+      <div class="steps" id="t-steps"></div>
+      <div class="actions"><button class="btn go" id="b-test2">Run AutoTest</button></div>
+      <p class="note">Runs by itself every time the port gets an address. Checks the link, DHCP, gateway, DNS, internet (HTTPS) and whether the switch announces itself.</p>
+    </div>
+    <div class="panel">
+      <h2>What the results mean</h2>
+      <div class="rows">
+        <div class="row"><span>Link</span><b class="muted">Speed and duplex the W5500 negotiated. Half duplex usually means a mismatch.</b></div>
+        <div class="row"><span>DHCP</span><b class="muted">Time from link up to lease. Over 5 s is slow; 169.254.x.x means no server answered.</b></div>
+        <div class="row"><span>Gateway</span><b class="mono muted">4 pings to the default gateway.</b></div>
+        <div class="row"><span>DNS</span><b class="muted">A lookup sent straight to the server DHCP handed out.</b></div>
+        <div class="row"><span>Internet</span><b class="muted">TCP connect on port 443 through this port.</b></div>
+        <div class="row"><span>Switch</span><b class="muted">LLDP, CDP or FDP heard within 65 s of link up.</b></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== PACKETS ===================== -->
+<section class="view" id="v-pkt">
+  <div class="grid two">
+    <div class="grid">
+      <div class="panel">
+        <h2>What's on the wire <small id="k-tot"></small></h2>
+        <div id="k-bars"></div>
+        <div class="chips" id="k-apps"></div>
+      </div>
+      <div class="panel">
+        <h2>Top talkers</h2>
+        <div class="rows" id="k-talk"><p class="muted">Nothing heard yet.</p></div>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>Live packets <small id="k-live"></small></h2>
+      <div class="actions" style="margin:0 0 10px">
+        <button class="btn" id="k-pause">Pause</button>
+        <a class="btn" href="/api/pcap" download="net-ghost.pcap">Download .pcap</a>
+      </div>
+      <div class="plist" id="k-list"></div>
+      <p class="note">This is what reaches the port: broadcasts, multicast, traffic to the tester, and flooded unknown-unicast. A switch only sends other devices' private traffic here if the port is mirrored (SPAN). The .pcap holds the last 64 frames, first 128 bytes of each, and opens in Wireshark.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== WIFI ===================== -->
+<section class="view" id="v-wifi">
+  <div class="grid two">
+    <div class="grid">
+      <div class="panel">
+        <h2>Connected network <small id="w-q"></small></h2>
+        <div style="display:flex;align-items:baseline;gap:8px"><span class="big" id="w-rssi">--</span><span class="muted">dBm</span></div>
+        <canvas id="c-rssi" height="70" style="margin-top:6px"></canvas>
+        <div class="rows" style="margin-top:6px">
+          <div class="row"><span>Network</span><b id="w-ssid">--</b></div>
+          <div class="row"><span>Access point</span><b class="mono" id="w-bssid">--</b></div>
+          <div class="row"><span>Channel</span><b id="w-ch">--</b></div>
+          <div class="row"><span>Security / mode</span><b id="w-sec">--</b></div>
+          <div class="row"><span>Address</span><b class="mono" id="w-ip">--</b></div>
+        </div>
+      </div>
+
+<div class="panel accent-cyan">
+ <h2>Wi-Fi information <small>Station interface · 2.4 GHz</small></h2>
+ <div class="rows">
+  <div class="row"><span>Frequency / width</span><b id="wi-radio">--</b></div>
+  <div class="row"><span>Secondary channel</span><b id="wi-secondary">--</b></div>
+  <div class="row"><span>Pairwise / group cipher</span><b id="wi-cipher">--</b></div>
+  <div class="row"><span>Subnet mask</span><b id="wi-mask">--</b></div>
+  <div class="row"><span>Gateway</span><b id="wi-gw">--</b></div>
+  <div class="row"><span>DNS server</span><b id="wi-dns">--</b></div>
+  <div class="row"><span>Station MAC</span><b class="mono" id="wi-mac">--</b></div>
+  <div class="row"><span>Connected for</span><b id="wi-up">--</b></div>
+  <div class="row"><span>Disconnects / reason code</span><b id="wi-disc">--</b></div>
+  <div class="row"><span>Country / power saving</span><b id="wi-country">--</b></div>
+  <div class="row"><span>Scan age</span><b id="wi-scan">--</b></div>
+ </div>
+ <p class="note">Width reflects the driver's station bandwidth and the AP's secondary-channel advertisement. Noise, SNR, Wi-Fi 5/6 networks and current PHY rate are not measured by this ESP32-S3.</p>
+</div>
+<div class="panel accent-pink">
+ <h2>Wi-Fi speed test <small id="ws-stage">Not run</small></h2>
+ <p class="badge">Always uses the tester's Wi-Fi connection</p>
+ <div class="meters"><div class="meter"><small>DOWNLOAD · Mbps</small><strong id="ws-down">--</strong></div><div class="meter"><small>UPLOAD · Mbps</small><strong id="ws-up">--</strong></div></div>
+ <div class="progress" role="progressbar" aria-label="Speed test progress" aria-valuemin="0" aria-valuemax="100" id="ws-progress"><i id="ws-bar"></i></div>
+ <div class="rows"><div class="row"><span>First-byte time</span><b id="ws-first">--</b></div><div class="row"><span>Tested network</span><b id="ws-network">--</b></div><div class="row"><span>Data transferred</span><b id="ws-bytes">--</b></div><div class="row"><span>Result age</span><b id="ws-age">--</b></div></div>
+ <p class="note" id="ws-error" role="status"></p>
+ <div class="actions"><button class="btn go" id="b-wspeed">Run Wi-Fi test</button><button class="btn" id="b-speedstop">Stop test</button></div>
+ <p class="note">Cloudflare HTTPS throughput sample on this tester. Each test downloads up to the chosen 1–20 MB limit and uploads up to 1 MB. Results depend on the ESP32, TLS, Wi-Fi, server and internet path; they are not your ISP plan speed or PHY rate. First-byte time includes connection/TLS/server delay, not ICMP latency. A partial result keeps any completed phase.</p>
+</div>
+
+      <div class="panel">
+        <h2>Join a network</h2>
+        <form class="inline" id="f-wifi">
+          <input name="ssid" id="f-ssid" placeholder="Network name" autocomplete="off" required>
+          <input name="pass" type="password" placeholder="Password (blank for open)" autocomplete="off">
+          <button class="btn go" type="submit">Save and connect</button>
+        </form>
+        <p class="note">Tap a network in the scan list to fill in its name. The tester remembers it after a reboot.</p>
+      </div>
+    </div>
+    <div class="grid">
+      <div class="panel">
+        <h2>Nearby networks <small id="w-count"></small></h2>
+        <div class="aps" id="w-aps"><p class="muted">No scan yet.</p></div>
+        <div class="actions"><button class="btn" id="b-scan">Scan again</button></div>
+      </div>
+      <div class="panel">
+        <h2>2.4 GHz channel load <small id="w-best"></small></h2>
+        <canvas id="c-ch" height="120"></canvas>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== TOOLS ===================== -->
+<section class="view" id="v-tools">
+  <div class="panel">
+    <h2>Tools <small id="tl-state"></small></h2>
+    <div class="seg-ctl" id="tl-pick">
+      <button data-t="ping" class="on">Ping</button>
+      <button data-t="trace">Traceroute</button>
+      <button data-t="dns">DNS lookup</button>
+      <button data-t="port">Port check</button>
+      <button data-t="sweep">Find hosts</button>
+      <button data-t="scan">Port scan</button>
+      <button data-t="quality">Link quality</button>
+      <button data-t="speed">Auto speed</button><button data-t="wspeed">Wi-Fi speed</button><button data-t="espeed">Ethernet speed</button>
+      <button data-t="wol">Wake-on-LAN</button>
+      <button data-t="secrouter">Router scan</button><button data-t="secwifi">Wi-Fi audit</button><button data-t="secrogue">Rogue AP</button><button data-t="secdns">DNS check</button>
+      <button data-t="secsnmp">SNMP check</button><button data-t="secupnp">UPnP scan</button><button data-t="sectls">TLS cert</button><button data-t="secdhcp">DHCP watch</button>
+      <button data-t="secseg">Segment test</button><button data-t="secarp">ARP test</button><button data-t="buffer">Bufferbloat</button>
+    </div>
+    <div class="toolrow">
+      <input id="tl-arg" placeholder="Host or IP, e.g. 8.8.8.8" autocomplete="off" autocapitalize="off">
+      <button class="btn go" id="tl-run">Run</button>
+    </div>
+    <p class="note" id="tl-hint">Five pings, with min/avg/max and loss.</p>
+    <pre class="term" id="tl-out">Results show up here.</pre>
+  </div>
+  <div class="panel">
+    <h2>Devices on the network <small id="hs-count"></small></h2>
+    <p class="note">Run <b>Find hosts</b> above, then this fills in. Names come from reverse DNS when your router provides them.</p>
+    <div class="actions"><button class="btn" id="hs-refresh">Refresh list</button></div>
+    <div id="hs-list" class="rows"></div>
+  </div>
+</section>
+
+<!-- ===================== SWITCH CONFIG ===================== -->
+<section class="view" id="v-swcfg">
+  <form class="panel" id="f-sw" autocomplete="off">
+    <h2>Configure switch port</h2>
+    <p class="note">Logs into your switch over SSH with your own credentials and moves the connected port to a VLAN. It shows the exact commands and asks you to confirm before changing anything. Ruckus ICX (FastIron) is supported today.</p>
+    <label class="fld stack"><span>Switch IP / host</span><input name="host" id="sw-host" inputmode="decimal" placeholder="10.0.0.3"></label>
+    <label class="fld stack"><span>Username</span><input name="user" id="sw-user" autocapitalize="off" placeholder="admin"></label>
+    <label class="fld stack"><span>Password</span><input name="pass" id="sw-pass" type="password" placeholder="(not saved)"></label>
+    <label class="fld stack"><span>Port / interface</span><input name="port" id="sw-port" placeholder="1/1/24"></label>
+    <div class="actions"><button class="btn go" type="submit" id="sw-connect">Connect &amp; read VLANs</button></div>
+    <p class="note" id="sw-status">Not connected.</p>
+  </form>
+  <div class="panel" id="sw-vlanbox" hidden>
+    <h2>Set port VLAN</h2>
+    <p class="note" id="sw-cur"></p>
+    <label class="fld"><span>Target VLAN</span><select id="sw-vlan"></select></label>
+    <p class="mono" id="sw-preview" style="padding:8px;background:var(--panel2);border-radius:var(--r-sm);white-space:pre-wrap"></p>
+    <div class="actions"><button class="btn bad" id="sw-apply">Apply to switch</button></div>
+  </div>
+  <div class="panel" id="sw-outbox" hidden>
+    <h2>Switch output</h2>
+    <pre class="term" id="sw-out"></pre>
+  </div>
+</section>
+
+<!-- ===================== DEVICE ===================== -->
+<section class="view" id="v-dev">
+  <div class="grid two">
+    <div class="panel">
+      <h2>This tester</h2>
+      <div class="rows">
+        <div class="row"><span>Uptime</span><b id="d-up">--</b></div>
+        <div class="row"><span>Chip temperature</span><b id="d-chip">--</b></div>
+        <div class="row"><span>Free memory</span><b id="d-heap">--</b></div>
+        <div class="row"><span>Firmware</span><b id="d-fw">--</b></div>
+        <div class="row"><span>Battery</span><b id="d-batt">--</b></div>
+        <div class="row"><span>Last restart</span><b id="d-rst">--</b></div>
+        <div class="row"><span>Bluetooth</span><b id="d-ble">--</b></div>
+        <div class="row"><span>Hotspot</span><b id="d-ap">--</b></div>
+        <div class="row"><span>SENTRY hub (MQTT)</span><b id="d-mqtt">--</b></div>
+        <div class="row"><span>Outside</span><b id="d-wx">--</b></div>
+      </div>
+      <div class="actions"><button class="btn" id="b-reboot">Restart tester</button></div>
+    </div>
+    <div class="panel">
+      <h2>Ways to reach this page</h2>
+      <div class="rows" id="d-urls"></div>
+      <p class="note">Joining the hotspot opens this page on its own. The Bluetooth service is ready for the companion app.</p>
+    </div>
+    <div class="panel">
+      <h2>Report for the ticket</h2>
+      <p class="muted">Port, switch, IP, AutoTest, link quality, alerts and Wi-Fi as plain text.</p>
+      <div class="actions"><button class="btn go" id="b-copy">Copy report</button><a class="btn" href="/api/report" target="_blank">Open report</a></div>
+    </div>
+    <div class="panel">
+      <h2>Event log</h2>
+      <div class="rows" id="d-events"><p class="muted">No events yet.</p></div>
+    </div>
+  </div>
+</section>
+
+
+<section class="view" id="v-cable"><div class="grid two">
+ <div class="panel accent-cyan"><h2>Cable diagnostics</h2><p class="badge">W5500 · 10/100 Ethernet</p><div class="rows">
+ <div class="row"><span>Current link</span><b id="wire-link">--</b></div>
+ <div class="row"><span>Cable length</span><b>Not measurable on this hardware</b></div>
+ <div class="row"><span>Pair continuity / wiremap</span><b>Not measurable on this hardware</b></div>
+ <div class="row"><span>Open / short location</span><b>Not measurable on this hardware</b></div>
+ </div><p class="note">The W5500 has no TDR or wiremap engine. A live Ethernet link, ping time or negotiated speed cannot tell us cable length or certify all four pairs. No length is estimated from packet latency.</p>
+ <div class="actions"><button class="btn go" id="wire-quality">Run link-quality test</button></div><p class="note" id="wire-quality-result"></p></div>
+ <div class="panel accent-orange"><h2>RJ45 pair reference</h2><p class="note">Pin reference only; these are not measured pair results.</p><div class="rows">
+ <div class="row"><span>Pair 1: pins 1–2</span><b>10/100BASE-TX data</b></div>
+ <div class="row"><span>Pair 2: pins 3–6</span><b>10/100BASE-TX data</b></div>
+ <div class="row"><span>Pair 3: pins 4–5</span><b>Unused for 10/100 data; may carry PoE</b></div>
+ <div class="row"><span>Pair 4: pins 7–8</span><b>Unused for 10/100 data; may carry PoE</b></div>
+ </div><p class="note">PoE can also share the data pairs. This page cannot detect pair polarity, wire order, split pairs, cable category or shielding.</p></div>
+</div></section>
+<section class="view" id="v-poe"><div class="grid two">
+ <div class="panel accent-orange"><h2>PoE switch information <small id="po-status">Waiting</small></h2><p class="badge">Advertisements · not electrical measurements</p><div class="rows">
+ <div class="row"><span>Source protocol</span><b id="po-proto">--</b></div>
+ <div class="row"><span>Advertised device role</span><b id="po-role">--</b></div>
+ <div class="row"><span>Supported / enabled</span><b id="po-enable">--</b></div>
+ <div class="row"><span>Power class / type</span><b id="po-class">--</b></div>
+ <div class="row"><span>Power pairs / control</span><b id="po-pairs">--</b></div>
+ <div class="row"><span>Power priority</span><b id="po-priority">--</b></div>
+ <div class="row"><span>PD requested</span><b id="po-request">--</b></div>
+ <div class="row"><span>PSE allocated</span><b id="po-allocate">--</b></div>
+ <div class="row"><span>LLDP-MED advertised</span><b id="po-med">--</b></div>
+ <div class="row"><span>CDP available / reported used</span><b id="po-cdp">--</b></div>
+ <div class="row"><span>Advertisement age</span><b id="po-age">--</b></div>
+ </div><p class="note">These fields are populated only when the switch sends a supported LLDP/CDP/FDP power TLV. Missing details do not mean the port has no PoE. Old advertisements are hidden after disconnect or expiry.</p></div>
+ <div class="panel"><h2>Electrical measurements</h2><div class="rows">
+ <div class="row"><span>Input source: PoE / USB / battery</span><b>Not sensed</b></div>
+ <div class="row"><span>PoE input voltage</span><b>Not measured</b></div>
+ <div class="row"><span>PoE current</span><b>Not measured</b></div>
+ <div class="row"><span>Actual consumed watts</span><b>Not measured</b></div>
+ </div><p class="note">Your PoE module supplies power but does not expose a measurement interface to this firmware. Advertised allocation is not measured consumption or proof that this tester is currently powered by PoE.</p></div>
+</div></section>
+
+<!-- ===================== SETTINGS ===================== -->
+<section class="view" id="v-set">
+  <div class="grid two">
+    <form class="panel" id="f-set" autocomplete="off">
+      <h2>Settings</h2>
+      <label class="fld"><span>Text size (screen and GUI)</span><select name="text_size"><option value="0">Standard</option><option value="1">Large</option></select></label>
+      <label class="fld"><span>High contrast</span><span class="sw"><input type="checkbox" name="contrast"><i></i></span></label>
+      <label class="fld"><span>Animations</span><span class="sw"><input type="checkbox" name="animations"><i></i></span></label>
+      <label class="fld"><span>Speed-test download limit</span><select name="speed_mb"><option value="1">1 MB</option><option value="5">5 MB</option><option value="10">10 MB</option><option value="20">20 MB</option></select></label>
+      <label class="fld"><span>Screen brightness</span><input type="range" name="bright" min="5" max="100" step="5"><output id="o-bright"></output></label>
+      <label class="fld"><span>Screen off after</span><select name="sleep"><option value="0">Never</option><option value="30">30 seconds</option><option value="60">1 minute</option><option value="300">5 minutes</option><option value="600">10 minutes</option></select></label>
+      <label class="fld"><span>Temperature units</span><select name="units_c"><option value="0">Fahrenheit</option><option value="1">Celsius</option></select></label>
+      <label class="fld"><span>Run AutoTest when plugged in</span><span class="sw"><input type="checkbox" name="autotest"><i></i></span></label>
+      <label class="fld"><span>Battery fitted</span><span class="sw"><input type="checkbox" name="battery"><i></i></span></label>
+      <label class="fld"><span>Port blink length</span><select name="blink"><option value="6">6 s</option><option value="12">12 s</option><option value="20">20 s</option><option value="30">30 s</option></select></label>
+      <label class="fld"><span>Time zone</span><select name="tz">
+        <option value="EST5EDT,M3.2.0,M11.1.0">Eastern</option><option value="CST6CDT,M3.2.0,M11.1.0">Central</option>
+        <option value="MST7MDT,M3.2.0,M11.1.0">Mountain</option><option value="MST7">Arizona</option>
+        <option value="PST8PDT,M3.2.0,M11.1.0">Pacific</option><option value="AKST9AKDT,M3.2.0,M11.1.0">Alaska</option>
+        <option value="HST10">Hawaii</option><option value="UTC0">UTC</option></select></label>
+
+      <div class="sub-h">Ethernet address</div>
+      <label class="fld"><span>Use a static IP instead of DHCP</span><span class="sw"><input type="checkbox" name="static" id="s-static"><i></i></span></label>
+      <div id="s-fields">
+        <label class="fld stack"><span>IP address</span><input type="text" name="s_ip" placeholder="10.0.0.50" inputmode="decimal"></label>
+        <label class="fld stack"><span>Subnet mask</span><input type="text" name="s_mask" placeholder="255.255.255.0" inputmode="decimal"></label>
+        <label class="fld stack"><span>Gateway</span><input type="text" name="s_gw" placeholder="10.0.0.1" inputmode="decimal"></label>
+        <label class="fld stack"><span>DNS server</span><input type="text" name="s_dns" placeholder="8.8.8.8" inputmode="decimal"></label>
+      </div>
+
+      <div class="sub-h">Hotspot and hub</div>
+      <label class="fld"><span>Phone hotspot</span><span class="sw"><input type="checkbox" name="hotspot"><i></i></span></label>
+      <label class="fld stack"><span>Hotspot password (8+ characters)</span><input type="password" name="ap_pass"></label>
+      <label class="fld stack"><span>SENTRY hub MQTT address</span><input type="text" name="mqtt" placeholder="mqtt://10.0.0.5:1883"></label>
+      <label class="fld stack"><span>OpenWeatherMap API key (weather on the home screen)</span><input type="text" name="owm" placeholder="leave blank for no weather"></label>
+      <label class="fld stack"><span>Link quality target</span><input type="text" name="qhost" placeholder="gateway"></label>
+
+      <div class="sub-h">Bluetooth</div>
+      <label class="fld"><span>Bluetooth on</span><span class="sw"><input type="checkbox" name="ble"><i></i></span></label>
+      <label class="fld"><span>Require PIN pairing (PIN shows on the tester)</span><span class="sw"><input type="checkbox" name="ble_pin"><i></i></span></label>
+      <label class="fld stack"><span>Bluetooth GUI link (where you host ble.html, must be https://)</span><input type="url" name="ble_url" placeholder="https://yourname.github.io/netally-buster/ble.html"></label>
+      <div class="actions"><button class="btn" type="button" id="b-bleforget">Forget paired phones</button></div>
+      <div class="actions"><button class="btn go" type="submit">Save settings</button></div>
+      <p class="note" id="set-msg">Turning the hotspot off from a phone that's on it will drop your connection.</p>
+    </form>
+    <div class="grid">
+      <div class="panel">
+        <h2>Restart and reset</h2>
+        <p class="muted">Factory reset clears every setting and the saved Wi-Fi network, then restarts.</p>
+        <div class="actions"><button class="btn" id="b-reboot2">Restart tester</button><button class="btn bad" id="b-factory">Factory reset</button></div>
+      </div>
+      <div class="panel">
+        <h2>Battery wiring</h2>
+        <p class="muted">1-cell Li-ion through a 100k/100k divider into GPIO4. Charger status (CHRG, active low) on GPIO5. Turn on "Battery fitted" once it's wired.</p>
+      </div>
+    </div>
+  </div>
+</section>
+</main>
+<div class="toast" id="toast"></div>
+
+<script>
+const $=id=>document.getElementById(id);
+const S={d:null,view:'port',tool:'ping',lastRuns:-1,prevSteps:[]};
+const STEP=['Link','DHCP','Gateway','DNS','Internet','Switch'];
+const ST=['','run','pass','warn','fail'];
+
+function txt(id,v){const e=$(id);if(e&&e.textContent!==String(v))e.textContent=v}
+function dur(s){if(s<60)return s+'s';if(s<3600)return Math.floor(s/60)+'m '+(s%60)+'s';
+  if(s<86400)return Math.floor(s/3600)+'h '+Math.floor(s%3600/60)+'m';return Math.floor(s/86400)+'d '+Math.floor(s%86400/3600)+'h'}
+function cnt(n){return n<1e4?n:n<1e6?(n/1e3).toFixed(1)+'k':(n/1e6).toFixed(2)+'M'}
+function toast(m){const t=$('toast');t.textContent=m;t.classList.add('show');clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('show'),2200)}
+function abbr(p){return (p||'').replace(/^TenGigabitEthernet/,'Te').replace(/^GigabitEthernet/,'Gi').replace(/^FastEthernet/,'Fa')}
+async function post(u,body){try{const r=await fetch(u,{method:'POST',body});return r.ok}catch(e){return false}}
+
+/* ---------- tabs ---------- */
+$('tabs').onclick=e=>{const b=e.target.closest('button');if(!b)return;
+  showView(b.dataset.v);
+if(S.view==='pkt')pollPkts();if(S.view==='dev')pollEvents();if(S.view==='swcfg')swPrefill();if(S.d)render(S.d)};
+
+/* ---------- AutoTest strip ---------- */
+$('strip').innerHTML=STEP.map(n=>`<div class="seg">${n}</div>`).join('');
+$('t-steps').innerHTML=STEP.map((n,i)=>`<div class="step" id="st${i}"><div class="dot"></div><div><div class="nm">${n}</div><div class="inf"></div></div><div class="val"></div></div>`).join('');
+function runTest(){post('/api/action?do=autotest');toast('AutoTest started')}
+$('b-test').onclick=runTest;$('b-test2').onclick=runTest;
+$('b-blink').onclick=()=>{post('/api/action?do=blink');toast('Blinking the port LED for 12 s')};
+$('b-scan').onclick=()=>{post('/api/action?do=scan');toast('Scanning')};
+$('b-reboot').onclick=()=>{if(confirm('Restart the tester?')){post('/api/action?do=reboot');toast('Restarting')}};
+
+/* ---------- charts ---------- */
+function canvas(id){const c=$(id),r=devicePixelRatio||1;if(!c._bh)c._bh=+c.getAttribute('height');const h=c._bh,w=c.clientWidth;
+  if(c._w!==w){c._w=w;c.width=w*r;c.height=h*r;c.style.height=h+'px'}const x=c.getContext('2d');x.setTransform(r,0,0,r,0,0);x.clearRect(0,0,w,h);return[x,w,h]}
+function line(id,arr,col,lo,hi){const[x,w,h]=canvas(id);if(!arr.length)return;
+  lo=lo??Math.min(...arr);hi=hi??Math.max(...arr);if(hi-lo<1)hi=lo+1;
+  const P=i=>[i*(w-2)/(arr.length-1)+1,h-4-(arr[i]-lo)/(hi-lo)*(h-10)];
+  x.beginPath();arr.forEach((v,i)=>{const[a,b]=P(i);i?x.lineTo(a,b):x.moveTo(a,b)});
+  x.strokeStyle=col;x.lineWidth=2;x.lineJoin='round';x.stroke();
+  x.lineTo(w-1,h);x.lineTo(1,h);x.closePath();const g=x.createLinearGradient(0,0,0,h);g.addColorStop(0,col+'40');g.addColorStop(1,col+'00');x.fillStyle=g;x.fill()}
+function chans(arr){const[x,w,h]=canvas('c-ch');const mx=Math.max(3,...arr),bw=w/13;
+  arr.forEach((v,i)=>{const bh=(h-22)*v/mx,good=[0,5,10].includes(i);
+    x.fillStyle=v?(good?'#5CD3F0':'#5C7189'):'#203449';x.fillRect(i*bw+3,h-18-Math.max(bh,2),bw-6,Math.max(bh,2));
+    x.fillStyle='#8DA2B8';x.font='11px system-ui';x.textAlign='center';x.fillText(i+1,i*bw+bw/2,h-4)})}
+
+/* ---------- tools ---------- */
+const HINT={ping:['Host or IP, e.g. 8.8.8.8','Five pings, with min/avg/max and loss.'],
+ trace:['Host or IP, e.g. 1.1.1.1','Shows each router hop, up to 20.'],
+ dns:['Name, e.g. office.example.com','Asks the DNS server this port got from DHCP.'],
+ port:['host:port, e.g. 10.0.0.5:443','Tells you if a TCP port is open, closed or filtered.'],
+ sweep:['','Pings every address in this /24 and lists who answers.'],
+ scan:['Host or IP, e.g. 10.0.0.20','Checks 21 common TCP ports (SSH, RDP, SMB, printers, cameras...).'],
+ quality:['','100 pings to the gateway at 10 per second: loss, latency and jitter.'],
+ speed:['','HTTPS sample over Ethernet when connected, otherwise Wi-Fi. Results reflect the tester, TLS and network path.'],
+ wspeed:['','Wi-Fi only: bounded HTTPS download and 1 MB upload. No Ethernet fallback.'],
+ espeed:['','Ethernet only: bounded HTTPS download and 1 MB upload. No Wi-Fi fallback.'],
+ wol:['MAC, e.g. AA:BB:CC:DD:EE:FF','Sends a Wake-on-LAN magic packet on the local network.'],
+ secrouter:['','Checks your gateway for risky open admin services (Telnet, FTP, plain HTTP, remote management). Read-only.'],
+ secwifi:['','Rates nearby Wi-Fi: open networks, weak (WEP/old) encryption, and whether your own link is strong.'],
+ secdns:['','Checks that your DNS resolver answers honestly and does not redirect fake or non-existent names.'],
+ secarp:['','ARP inspection self-test: announces only this tester\'s own address and reports whether the network lacks Dynamic ARP Inspection. It does not attack or impersonate anything.'],
+ secrogue:['','Checks nearby Wi-Fi for another radio broadcasting your SSID, or an open copy of it (evil twin).'],
+ secsnmp:['Optional target IP (default: switch/gateway)','Read-only: does the device still answer to the default SNMP communities public/private?'],
+ secupnp:['','Lists devices that answer UPnP/SSDP discovery and may open ports to the internet on their own.'],
+ sectls:['host or host:port (default: switch/gateway)','Checks an HTTPS service: trusted/self-signed cert, TLS version, and expiry date.'],
+ secdhcp:['','Shows how many DHCP servers are handing out leases on this wire (more than one = rogue DHCP).'],
+ secseg:['target IP on another VLAN (default: switch mgmt)','Tests whether something that should be isolated is reachable from this port.'],
+ buffer:['','Measures the extra latency to your gateway while the link is saturated (bufferbloat grade A-D).']};
+$('tl-pick').onclick=e=>{const b=e.target.closest('button');if(!b)return;S.tool=b.dataset.t;
+  document.querySelectorAll('#tl-pick button').forEach(x=>x.classList.toggle('on',x===b));
+  $('tl-arg').placeholder=HINT[S.tool][0];$('tl-arg').disabled=!HINT[S.tool][0];txt('tl-hint',HINT[S.tool][1])};
+$('tl-run').onclick=async()=>{const a=$('tl-arg').value.trim();
+  if(HINT[S.tool][0]&&!a){$('tl-arg').focus();return}
+  if(!await post(`/api/tool?type=${S.tool}&arg=${encodeURIComponent(a)}`))toast('A tool is already running');};
+$('tl-arg').onkeydown=e=>{if(e.key==='Enter')$('tl-run').click()};
+$('hs-refresh').onclick=loadHosts;
+async function loadHosts(){try{const d=await (await fetch('/api/hosts')).json();
+  txt('hs-count',d.n?`${d.n} found`:'');
+  const h=d.list.map(x=>`<div class="row"><span class="mono">${x.ip}${x.name?'<br><span class="muted">'+x.name+'</span>':''}</span><b class="mono">${x.mac||'&mdash;'}${x.vendor?'<br><span class="muted">'+x.vendor+'</span>':''}</b></div>`).join('');
+  const el=$('hs-list'); if(el._v!==h){el.innerHTML=h||'<p class="muted" style="padding:8px">No devices yet. Tap Find hosts.</p>';el._v=h}}catch(e){}}
+async function pollLog(){if(S.view!=='tools')return;try{const t=await (await fetch('/api/log')).text();
+  const o=$('tl-out');if(t&&o.textContent!==t){const end=o.scrollTop+o.clientHeight>=o.scrollHeight-20;o.textContent=t;if(end)o.scrollTop=o.scrollHeight;
+    if(/answered ping/.test(t))loadHosts();}}catch(e){}}
+
+/* ---------- Wi-Fi form ---------- */
+$('f-wifi').onsubmit=async e=>{e.preventDefault();const f=new URLSearchParams(new FormData(e.target));
+  toast(await post('/api/wifi',f)?'Saved, connecting':'Could not save')};
+$('w-aps').onclick=e=>{const r=e.target.closest('.ap');if(r&&r.dataset.s){$('f-ssid').value=r.dataset.s;$('f-ssid').scrollIntoView({behavior:'smooth',block:'center'})}};
+
+/* ---------- settings view (gear) ---------- */
+function showView(v){S.view=v;document.querySelectorAll('.view').forEach(x=>x.classList.toggle('on',x.id==='v-'+v));
+  document.querySelectorAll('#tabs button').forEach(x=>x.classList.toggle('on',x.dataset.v===v));
+  $('b-gear').classList.toggle('on',v==='set');window.scrollTo(0,0)}
+$('b-gear').onclick=()=>{showView('set');loadSettings()};
+async function loadSettings(){try{const c=await (await fetch('/api/settings')).json();const f=$('f-set');
+  for(const[k,v]of Object.entries(c)){const el=f.elements[k];if(!el)continue;
+    if(el.type==='checkbox')el.checked=!!v;else if(el.tagName==='SELECT')el.value=String(typeof v==='boolean'?(v?1:0):v);else el.value=v}
+  $('o-bright').textContent=f.elements.bright.value+'%';$('s-fields').hidden=!f.elements.static.checked}catch(e){toast('Could not load settings')}}
+$('f-set').elements.bright.oninput=e=>$('o-bright').textContent=e.target.value+'%';
+$('s-static').onchange=e=>$('s-fields').hidden=!e.target.checked;
+$('f-set').onsubmit=async e=>{e.preventDefault();const f=e.target,p=new URLSearchParams();
+  for(const el of f.elements){if(!el.name)continue;
+    if(el.type==='checkbox')p.append(el.name,el.checked?'1':'0');
+    else if(el.name==='ap_pass'&&el.value.length<8)continue; else p.append(el.name,el.value)}
+  try{const r=await (await fetch('/api/settings',{method:'POST',body:p})).json();
+    txt('set-msg',r.restart?'Saved. Restart the tester for the hotspot password, hub address or weather key to take effect.':'Saved.');toast('Settings saved')}
+  catch(e){toast('Could not save')}};
+$('b-reboot2').onclick=()=>{if(confirm('Restart the tester?')){post('/api/action?do=reboot');toast('Restarting')}};
+$('b-bleforget').onclick=()=>{if(confirm('Unpair every phone from this tester? Each phone will need the PIN again.')){post('/api/action?do=bleforget');toast('Paired phones forgotten')}};
+$('b-factory').onclick=()=>{if(confirm('Erase all settings and the saved Wi-Fi network?')){post('/api/action?do=factory');toast('Resetting')}};
+
+/* ---------- cable / link actions ---------- */
+$('b-qual').onclick=()=>{post('/api/action?do=quality');toast('Testing link quality (10 s)')};
+$('b-speed').onclick=async()=>{toast(await post('/api/tool?type=espeed&arg=')?'Speed test running, see Tools':'A tool is already running')};
+$('b-renew').onclick=()=>{post('/api/action?do=renew');toast('Renewing DHCP lease')};
+$('b-copy').onclick=async()=>{try{const t=await (await fetch('/api/report')).text();
+  const ta=document.createElement('textarea');ta.value=t;document.body.appendChild(ta);ta.select();
+  let ok=false;try{ok=document.execCommand('copy')}catch(e){}
+  if(!ok&&navigator.clipboard)try{await navigator.clipboard.writeText(t);ok=true}catch(e){}
+  ta.remove();toast(ok?'Report copied':'Copy blocked, use Open report')}catch(e){toast('Could not build report')}};
+
+/* ---------- packets ---------- */
+S.kPause=false;
+$('k-pause').onclick=e=>{S.kPause=!S.kPause;e.target.textContent=S.kPause?'Resume':'Pause'};
+const KB=[['IPv4','#5CD3F0'],['IPv6','#A88BFA'],['ARP','#F2B84B'],['L2 control','#FB923C'],['Other','#5C7189']];
+async function pollPkts(){if(S.view!=='pkt')return;try{const k=await (await fetch('/api/packets')).json();
+  const P=k.pk,v=[P.IPv4,P.IPv6,P.ARP,P.LLDP+P.CDP+P.STP,P.Other],tot=v.reduce((a,b)=>a+b,0)||1;
+  txt('k-tot',`${k.fps} frames/s, ${cnt(k.total)} seen`);
+  if(!$('k-bars').children.length)$('k-bars').innerHTML=KB.map(b=>`<div class="pbar"><span>${b[0]}</span><div class="tr"><i style="background:${b[1]};width:0"></i></div><b>0%</b></div>`).join('');
+  [...$('k-bars').children].forEach((r,i)=>{const p=Math.round(v[i]*100/tot);r.querySelector('i').style.width=p+'%';r.querySelector('b').textContent=p+'%'});
+  const apps=['TCP','UDP','ICMP','IGMP','DHCP','DNS','mDNS','SSDP','NetBIOS','LLMNR','NTP','SNMP','802.1Q','STP','LLDP','CDP'];
+  const ah=apps.map(a=>`<span class="chip">${a}<b>${cnt(P[a]||0)}</b></span>`).join('');if($('k-apps')._v!==ah){$('k-apps').innerHTML=ah;$('k-apps')._v=ah}
+  const th=k.talkers.map(x=>`<div class="row"><span class="mono">${x.ip||x.m}${x.me?' <span class="muted">(this tester)</span>':''}<br><span class="muted">${x.ip?x.m:''}</span></span><b>${cnt(x.f)} frames<br><span class="muted">${x.bc?cnt(x.bc)+' broadcast':''}</span></b></div>`).join('');
+  if(th&&$('k-talk')._v!==th){$('k-talk').innerHTML=th;$('k-talk')._v=th}
+  if(!S.kPause){txt('k-live',`last ${k.frames.length}`);
+    $('k-list').innerHTML=k.frames.map(f=>`<div class="pk ${f.p}"><span class="pt">${f.t}</span><span class="pp">${f.p}</span><span class="pi">${(f.i||'').replace(/</g,'&lt;')||f.l+' bytes'}</span><span class="ps">${f.s} → ${f.d}  ${f.l} B</span></div>`).join('')||'<p class="muted" style="padding:10px">No frames yet.</p>'}
+}catch(e){}}
+setInterval(pollPkts,1500);
+
+/* ---------- events ---------- */
+async function pollEvents(){if(S.view!=='dev')return;try{const ev=await (await fetch('/api/events')).json();
+  const h=ev.map(e=>`<div class="row"><span>${e.t||dur(e.up)+' after boot'}</span><b>${e.m.replace(/</g,'&lt;')}</b></div>`).join('');
+  if(h&&$('d-events')._v!==h){$('d-events').innerHTML=h;$('d-events')._v=h}}catch(e){}}
+setInterval(pollEvents,4000);
+
+/* ---------- v1.5 diagnostic pages ---------- */
+$('b-wspeed').onclick=async()=>toast(await post('/api/tool?type=wspeed&arg=')?'Wi-Fi speed test started':'A tool is already running');
+$('b-speedstop').onclick=()=>post('/api/action?do=speedstop');
+$('wire-quality').onclick=()=>post('/api/action?do=quality');
+function renderDiagnostics(d){
+ const W=d.wifi,R=d.wifi_speed,P=d.poe,D=d.dev,L=d.link,Q=d.quality;
+ document.documentElement.style.setProperty('--text-scale',D.text_size?'1.18':'1');
+ document.body.classList.toggle('high-contrast',D.contrast);
+ document.body.classList.toggle('reduced-motion',!D.animations);
+ const c=(id,v)=>txt(id,W.conn?v:'--');
+ c('wi-radio',`${W.frequency} MHz / ${W.width} MHz`);c('wi-secondary',W.secondary===1?'Above primary':W.secondary===-1?'Below primary':'None');
+ c('wi-cipher',`${W.pairwise} / ${W.group}`);c('wi-mask',W.mask);c('wi-gw',W.gw);c('wi-dns',W.dns);
+ txt('wi-mac',W.mac||'--');c('wi-up',dur(W.up_s));txt('wi-disc',`${W.reconnects} / ${W.disconnect_reason||'none'}`);
+ c('wi-country',`${W.country||'unset'} / ${W.powersave?'on':'off'}`);txt('wi-scan',W.scan_age>=0?dur(W.scan_age)+' ago':'No scan');
+ txt('ws-stage',R.stage||'Not run');txt('ws-down',R.down_ok?R.down.toFixed(2):'--');txt('ws-up',R.up_ok?R.up.toFixed(2):'--');
+ txt('ws-first',R.down_ok?R.first_byte+' ms':'--');txt('ws-network',R.network?R.network+(R.channel?' · ch '+R.channel:''):'--');
+ txt('ws-bytes',`${(R.down_bytes/1e6).toFixed(2)} MB down / ${(R.up_bytes/1e6).toFixed(2)} MB up`);
+ txt('ws-age',R.age>=0?dur(R.age)+' ago':'--');txt('ws-error',R.error||'');
+ $('ws-bar').style.width=(R.running?R.progress:R.down_ok?100:0)+'%';$('ws-progress').setAttribute('aria-valuenow',R.progress);
+ $('b-wspeed').disabled=d.tool||!W.conn||W.scanning;$('b-speedstop').disabled=!R.running&&!d.eth_speedtest.running;
+ txt('wire-link',L.link?`${L.speed} Mb/s ${L.full?'full':'half'} duplex`:'No link');$('wire-quality').disabled=!L.ip_ok||Q.running;
+ txt('wire-quality-result',Q.running?`Testing ${Q.done}%`:Q.sent?`${Q.recv}/${Q.sent} replies · average ${Q.avg} ms · jitter ${Q.jitter} ms`:'No link-quality test yet');
+ const fresh=P.fresh,w=v=>fresh&&v>=0?(v/1000).toFixed(1)+' W':'Not reported',v=(id,x)=>txt(id,fresh?x:'--');
+ txt('po-status',fresh?'Fresh advertisement':P.advertised?'Old / disconnected':'Not advertised');
+ v('po-proto',P.protocol);v('po-role',P.mdi?(P.pse?'PSE · power source':'PD · powered device'):'Not reported');
+ v('po-enable',P.mdi?`${P.supported?'Yes':'No'} / ${P.enabled?'Yes':'No'}`:'Not reported');
+ v('po-class',`${P.class>=0?'Class '+P.class:'Not reported'}${P.extended?' / Type '+P.type:''}`);
+ v('po-pairs',P.mdi?`${P.pairs===1?'1–2 / 3–6 · data':P.pairs===2?'4–5 / 7–8 · spare':'Not reported'} / control ${P.pair_control?'yes':'no'}`:'Not reported');
+ v('po-priority',P.priority>=0&&P.priority<=3?['Unknown','Critical','High','Low'][P.priority]:'Not reported');
+ txt('po-request',w(P.requested_mw));txt('po-allocate',w(P.allocated_mw));txt('po-med',w(P.med_mw));
+ v('po-cdp',w(P.available_mw)+' / '+w(P.used_mw));txt('po-age',P.advertised?dur(P.age)+' ago':'--');
+ $('b-speed').disabled=d.tool||!L.ip_ok;
+}
+
+/* ---------- render ---------- */
+function led(id,on,mid){const e=$(id);e.classList.toggle('on',!!on);e.classList.toggle('mid',!on&&!!mid)}
+function render(d){
+  renderDiagnostics(d);
+  const L=d.link,W=d.wifi,SW=d.switch,T=d.test,D=d.dev;
+  led('l-eth',L.ip_ok,L.link);led('l-wifi',W.conn);led('l-bt',D.ble_conn);
+  const B=d.batt,lb=$('l-batt');lb.hidden=!B.enabled;
+  if(B.enabled){lb.className='led batt '+(!B.present?'':B.charging?'chg':B.pct<=15?'low':'ok');txt('l-batt-t',B.present?B.pct+'%':'--')}
+
+  /* alerts */
+  const A=d.alerts;txt('al-count',A.list.length?(A.bad?A.bad+' to check':'info only'):'');
+  const ah=A.list.map(a=>`<div class="al l${a.l}"><b>${a.l==2?'Problem':a.l==1?'Check':'Info'}</b><span>${a.t.replace(/</g,'&lt;')}</span></div>`).join('')||'<p class="clear">Nothing wrong spotted on this port.</p>';
+  if($('al-list')._v!==ah){$('al-list').innerHTML=ah;$('al-list')._v=ah}
+
+  /* hero */
+  const hp=$('h-port');
+  if(SW.found){hp.className='port';txt('h-port',abbr(SW.port));txt('h-where',SW.name)}
+  else if(L.link){hp.className='port idle';txt('h-port',L.ip_ok?'Listening for the switch':'Waiting for DHCP');txt('h-where',L.ip_ok?'LLDP / CDP can take up to a minute':'Link is up')}
+  else{hp.className='port idle';txt('h-port','No link');txt('h-where','Plug the tester into a wall jack or switch port')}
+  const f=[];if(SW.found&&SW.vlan)f.push(`VLAN <b>${SW.vlan}</b>`);if(SW.voice)f.push(`Voice <b>${SW.voice}</b>`);
+  if(L.link)f.push(`<b>${L.speed} Mb/s</b> ${L.full?'full':'half'} duplex`);if(L.ip_ok)f.push(`<b class="mono">${L.ip}</b>`);
+  if(SW.poe)f.push(`PoE <b>${SW.poe}</b>`);
+  const fh=f.join('');if($('h-facts')._v!==fh){$('h-facts').innerHTML=f.map(x=>`<span>${x}</span>`).join('');$('h-facts')._v=fh}
+  $('b-blink').disabled=L.blink||!L.link;$('b-blink').textContent=L.blink?'Blinking…':'Blink port LED';
+
+  /* AutoTest strip + list */
+  const segs=$('strip').children;
+  T.steps.forEach((s,i)=>{const c=ST[s.s];const seg=segs[i];
+    if(seg.dataset.c!==c){seg.className='seg '+c;seg.dataset.c=c;
+      if(c==='pass'||c==='warn'||c==='fail'){seg.classList.add('pop');setTimeout(()=>seg.classList.remove('pop'),350)}}
+    const row=$('st'+i);row.className='step '+c;row.querySelector('.val').textContent=s.v||'';row.querySelector('.inf').textContent=s.i||''});
+  ['b-test','b-test2'].forEach(id=>{$(id).disabled=T.running;$(id).textContent=T.running?'Testing…':(T.runs?'Run again':'Run AutoTest')});
+  txt('t-sum',T.running?'running':T.result===1?'all passed':T.result===2?'passed with warnings':T.result===3?'problems found':'not run yet');
+  if(S.lastRuns>=0&&!T.running&&S.wasRunning)toast(T.result===1?'AutoTest passed':T.result===2?'AutoTest: warnings':'AutoTest found problems');
+  S.wasRunning=T.running;S.lastRuns=T.runs;
+
+  if(S.view==='port'){
+    txt('p-rate',`${L.fps} frames/s, ${cnt(L.bps)}B/s`);line('c-fps',d.fps,'#5CD3F0',0);
+    txt('p-bcmc',`${L.bc}% / ${L.mc}%`);txt('p-rx',cnt(L.rx));txt('p-arp',cnt(L.rx_arp));
+    txt('p-up',L.link?dur(L.up_s):'down');txt('p-flaps',L.flaps);
+    txt('s-proto',SW.found?SW.proto:(L.link?'listening':''));
+    const sv=(id,v)=>txt(id,v||'--');
+    sv('s-name',SW.found&&SW.name);sv('s-port',SW.found&&SW.port);sv('s-pdesc',SW.found&&SW.pdesc);sv('s-vlan',SW.found&&SW.vlan);
+    txt('s-voice',SW.found?(SW.voice||'none'):'--');sv('s-mode',SW.found&&SW.mode);sv('s-mgmt',SW.found&&SW.mgmt);
+    sv('s-model',SW.found&&SW.model);sv('s-ver',SW.found&&SW.ver);sv('s-caps',SW.found&&SW.caps);sv('s-duplex',SW.found&&SW.duplex);sv('s-poe',SW.found&&SW.poe);
+    txt('s-stp',SW.stp?SW.stp_root+(SW.stp_tc?'  (topology change)':''):'no BPDUs heard');
+    txt('s-age',SW.found?`${dur(SW.age)} ago`:'--');
+    const Q=d.quality;
+    const mm=SW.duplex&&((/Full/.test(SW.duplex)&&!L.full)||(/Half/.test(SW.duplex)&&L.full));
+    const loss=Q.sent?Math.round((Q.sent-Q.recv)*100/Q.sent):0;
+    const v=!L.hw?'no Ethernet chip':!L.link?'no link':mm?'duplex mismatch':(L.speed==10||!L.full)?'slow link':(Q.sent&&loss>1)?'packet loss':'looks good';
+    txt('c-verdict',v);$('c-verdict').style.color=v==='looks good'?'var(--pass)':(v==='no link'||mm)?'var(--fail)':'var(--warn)';
+    txt('c-me',L.link?`${L.speed} Mb/s ${L.full?'full':'half'} duplex`:'no link');txt('c-sw',SW.duplex||'not reported');
+    txt('c-can',SW.adv?SW.adv+' Mb/s':'not reported');
+    txt('c-drops',`${L.flaps} total`);
+    txt('c-loss',Q.running?`testing… ${Q.done}%`:Q.sent?`${loss}% (${Q.recv}/${Q.sent} to ${Q.target})`:'not tested');
+    txt('c-lat',Q.recv?`${Q.avg} ms avg, ${Q.max} ms max, ${Q.jitter} ms jitter`:'--');
+    txt('c-speed',d.eth_speedtest.down_ok?d.eth_speedtest.down.toFixed(2)+' Mbit/s':'not tested');
+    $('b-qual').disabled=Q.running||!L.ip_ok;$('b-qual').textContent=Q.running?'Testing…':'Test link quality';
+    $('b-renew').disabled=!L.link||L.static;
+    const ip=v=>L.ip_ok?v:'--';txt('i-ip',ip(L.ip));txt('i-mask',ip(L.mask));txt('i-gw',ip(L.gw));txt('i-dns',ip(L.dns));
+    txt('i-dhcp',L.ip_ok?`${L.dhcp} (${(L.dhcp_ms/1000).toFixed(1)} s)`:'--');txt('i-lease',L.lease?dur(L.lease):'--');txt('i-mac',L.mac);
+  }
+  if(S.view==='wifi'){
+    if(W.conn){txt('w-rssi',W.rssi);txt('w-q',W.rssi>=-55?'excellent':W.rssi>=-67?'good':W.rssi>=-75?'fair':'weak');
+      txt('w-ssid',W.ssid);txt('w-bssid',W.bssid);txt('w-ch',W.ch);txt('w-sec',`${W.auth}, ${W.phy}`);txt('w-ip',W.ip)}
+    else{txt('w-rssi','--');txt('w-q',W.cfg?'connecting to '+W.cfg:'not set up');['w-ssid','w-bssid','w-ch','w-sec','w-ip'].forEach(i=>txt(i,'--'))}
+    line('c-rssi',d.rssi,'#57D68D',-100,-30);
+    txt('w-count',W.scanning?'scanning…':W.count?W.count+' found':'');
+    const h=W.aps.map(a=>{const n=a.r>=-55?4:a.r>=-67?3:a.r>=-75?2:1,col=n>=3?'#57D68D':n==2?'#F2B84B':'#F0625D';
+      return `<div class="ap" data-s="${a.s.replace(/"/g,'&quot;')}"><div class="bars">${[1,2,3,4].map(k=>`<i style="${k<=n?'background:'+col:''}"></i>`).join('')}</div>
+      <div><div>${a.s?a.s.replace(/</g,'&lt;'):'<span class="muted">hidden network</span>'}</div><div class="sub mono">${a.b}</div></div>
+      <div style="text-align:right"><div>${a.r} dBm</div><div class="sub ${a.a==='OPEN'?'open':''}">ch ${a.c}, ${a.a.toLowerCase()==='open'?'open':a.a}</div></div></div>`}).join('');
+    if($('w-aps')._v!==h){$('w-aps').innerHTML=h||'<p class="muted">No networks heard. Tap Scan again.</p>';$('w-aps')._v=h}
+    chans(W.chans);const c=[1,6,11].sort((a,b)=>W.chans[a-1]-W.chans[b-1])[0];txt('w-best',W.count?`quietest: channel ${c}`:'');
+  }
+  if(S.view==='tools')txt('tl-state',d.tool?(d.sweep?`probing ${d.sweep_done}/254, ${d.sweep_found} found`:'running…'):'');
+  if(S.view==='dev'){
+    txt('d-up',dur(D.up));txt('d-chip',D.units_c?((D.chip_f-32)*5/9).toFixed(1)+' °C':D.chip_f.toFixed(1)+' °F');txt('d-heap',`${Math.round(D.heap/1024)} KB (lowest ${Math.round(D.heap_min/1024)} KB)`);
+    txt('d-fw','v'+D.fw);txt('d-batt',!B.enabled?'not fitted (Settings)':!B.present?'no reading on GPIO4':`${B.pct}%, ${B.v.toFixed(2)} V${B.charging?', charging':''}`);txt('d-rst',D.reset);txt('d-ble',(D.ble_conn?(D.ble_secure?'phone paired, encrypted':'phone connected'):D.ble?`advertising as "${D.ble_name}"`:'off')+(D.ble_bonds?` · ${D.ble_bonds} paired`:''));
+    txt('d-ap',`${d.gui.ssid}, ${D.ap_clients} connected`);txt('d-mqtt',D.mqtt?'connected':'not connected');
+    txt('d-wx',D.wx?`${D.wx_temp} °F, ${D.wx_cond}`:'no weather key set');
+    const u=[['Hotspot',d.gui.url,`${d.gui.ssid} / ${d.gui.pass}`],['Ethernet',d.gui.eth_url],['Wi-Fi',d.gui.wifi_url]].filter(x=>x[1]);
+    const h=u.map(x=>`<div class="row"><span>${x[0]}</span><b class="mono">${x[1]}${x[2]?'<br><span class="muted">'+x[2]+'</span>':''}</b></div>`).join('');
+    if($('d-urls')._v!==h){$('d-urls').innerHTML=h;$('d-urls')._v=h}
+  }
+}
+
+
+/* ---------- switch configurator ---------- */
+function swPrefill(){const d=S.d;if(!d)return;
+  if(!$('sw-host').value&&d.switch&&d.switch.mgmt)$('sw-host').value=d.switch.mgmt;
+  if(!$('sw-port').value&&d.switch&&d.switch.port)$('sw-port').value=(d.switch.port.match(/[0-9]+\/[0-9]+\/[0-9]+|[0-9]+\/[0-9]+/)||[d.switch.port])[0];
+  swRefresh();}
+let swPoll=null;
+function swShow(d){
+  txt('sw-status',d.status||'Not connected.');
+  const vb=$('sw-vlanbox');
+  if(d.connected&&d.vlans&&d.vlans.length){
+    vb.hidden=false;
+    const sel=$('sw-vlan');
+    if(sel._v!==d.vlans.join(',')){sel.innerHTML=d.vlans.map(v=>`<option value="${v}">VLAN ${v}</option>`).join('');sel._v=d.vlans.join(',')}
+    txt('sw-cur',d.cur?`Port ${d.port} is currently on VLAN ${d.cur}.`:`Port ${d.port||'(set above)'}.`);
+    swPreview();
+  }
+  if(d.result){$('sw-outbox').hidden=false;const o=$('sw-out');if(o.textContent!==d.result)o.textContent=d.result}
+  const busy=d.busy;
+  $('sw-connect').disabled=busy;$('sw-apply').disabled=busy;
+  if(!busy&&swPoll){clearInterval(swPoll);swPoll=null}
+}
+function swPreview(){const v=$('sw-vlan').value,port=$('sw-port').value.trim();
+  $('sw-preview').textContent=v&&port?`conf t\n vlan ${v}\n  untagged ethernet ${port}\nend\nwrite memory`:'Pick a VLAN.'}
+$('sw-vlan')&&($('sw-vlan').onchange=swPreview);
+async function swRefresh(){try{swShow(await (await fetch('/api/switch')).json())}catch(e){}}
+$('f-sw').onsubmit=async e=>{e.preventDefault();
+  const f=new URLSearchParams(new FormData(e.target));
+  if(!await post('/api/switch/connect',f)){toast('Connect failed');return}
+  toast('Connecting over SSH...');$('sw-outbox').hidden=true;
+  if(swPoll)clearInterval(swPoll);swPoll=setInterval(swRefresh,1200);swRefresh();};
+$('sw-apply').onclick=async()=>{
+  const v=$('sw-vlan').value,port=$('sw-port').value.trim();
+  if(!v||!port){toast('Pick a VLAN and port');return}
+  if(!confirm(`Apply to ${$('sw-host').value}\n\nMove port ${port} to VLAN ${v}?\n\nThis changes live switch config.`))return;
+  const p=new URLSearchParams();['host','user','pass','port'].forEach(k=>p.append(k,$('f-sw').elements[k].value));p.append('vlan',v);
+  if(!await post('/api/switch/apply',p)){toast('Apply failed');return}
+  toast('Applying...');if(swPoll)clearInterval(swPoll);swPoll=setInterval(swRefresh,1200);swRefresh();};
+
+/* ---------- polling ---------- */
+async function poll(){
+  try{const r=await fetch('/api/status',{cache:'no-store'});S.d=await r.json();render(S.d);$('top').classList.remove('stale')}
+  catch(e){$('top').classList.add('stale')}
+  pollLog();
+  setTimeout(poll,document.hidden?4000:1000);
+}
+poll();
+addEventListener('resize',()=>S.d&&render(S.d));
+</script>
+</body>
+</html>
