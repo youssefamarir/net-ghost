@@ -5,16 +5,16 @@
 [1584/1590] Building C object esp-idf/main/CMakeFiles/__idf_main.dir/packets.c.obj
 [1585/1590] Linking C static library esp-idf/main/libmain.a
 [1586/1590] Generating esp-idf/esp_system/ld/sections.ld
-NOTE: /tmp/claude-0/-home-claude/791e26dc-a096-51ce-ae56-188ac75ef100/scratchpad/esp-idf/components/bt/host/nimble/Kconfig.in:103: BT_NIMBLE_L2CAP_ENHANCED_COC: 'default 0' is not a valid bool value (only 'y' and 'n' are allowed). Value is treated as 'n'.
-NOTE: /tmp/claude-0/-home-claude/791e26dc-a096-51ce-ae56-188ac75ef100/scratchpad/esp-idf/components/bt/host/nimble/Kconfig.in:543: BT_NIMBLE_MESH_PROVISIONER: 'default 0' is not a valid bool value (only 'y' and 'n' are allowed). Value is treated as 'n'.
-NOTE: /tmp/claude-0/-home-claude/791e26dc-a096-51ce-ae56-188ac75ef100/scratchpad/esp-idf/components/fatfs/Kconfig:230: FATFS_PRINT_LLI: 'default 0' is not a valid bool value (only 'y' and 'n' are allowed). Value is treated as 'n'.
-NOTE: /tmp/claude-0/-home-claude/791e26dc-a096-51ce-ae56-188ac75ef100/scratchpad/esp-idf/components/fatfs/Kconfig:235: FATFS_PRINT_FLOAT: 'default 0' is not a valid bool value (only 'y' and 'n' are allowed). Value is treated as 'n'.
-NOTE: /tmp/claude-0/-home-claude/791e26dc-a096-51ce-ae56-188ac75ef100/scratchpad/esp-idf/components/bootloader/Kconfig.projbuild:378: Deprecation notice: hex literal '0' without '0x' prefix detected. In the next major version, hex literals will be required to have a '0x' prefix.
-NOTE: /tmp/claude-0/-home-claude/791e26dc-a096-51ce-ae56-188ac75ef100/scratchpad/esp-idf/components/bootloader/Kconfig.projbuild:418: Deprecation notice: hex literal '0' without '0x' prefix detected. In the next major version, hex literals will be required to have a '0x' prefix.
-NOTE: /tmp/claude-0/-home-claude/791e26dc-a096-51ce-ae56-188ac75ef100/scratchpad/esp-idf/components/bt/host/nimble/Kconfig.in:305: Deprecation notice: hex literal '0' without '0x' prefix detected. In the next major version, hex literals will be required to have a '0x' prefix.
-NOTE: /tmp/claude-0/-home-claude/791e26dc-a096-51ce-ae56-188ac75ef100/scratchpad/esp-idf/components/esp_mm/Kconfig:20: Deprecation notice: hex literal '0' without '0x' prefix detected. In the next major version, hex literals will be required to have a '0x' prefix.
-NOTE: /tmp/claude-0/-home-claude/791e26dc-a096-51ce-ae56-188ac75ef100/scratchpad/esp-idf/components/esp_system/./port/soc/esp32s3/Kconfig.memory:21: Deprecation notice: hex literal '0' without '0x' prefix detected. In the next major version, hex literals will be required to have a '0x' prefix.
-NOTE: /tmp/claude-0/-home-claude/791e26dc-a096-51ce-ae56-188ac75ef100/scratchpad/esp-idf/components/openthread/Kconfig:69: Deprecation notice: hex literal '0' without '0x' prefix detected. In the next major version, hex literals will be required to have a '0x' prefix.
+NOTE: <build-workspace>/esp-idf/components/bt/host/nimble/Kconfig.in:103: BT_NIMBLE_L2CAP_ENHANCED_COC: 'default 0' is not a valid bool value (only 'y' and 'n' are allowed). Value is treated as 'n'.
+NOTE: <build-workspace>/esp-idf/components/bt/host/nimble/Kconfig.in:543: BT_NIMBLE_MESH_PROVISIONER: 'default 0' is not a valid bool value (only 'y' and 'n' are allowed). Value is treated as 'n'.
+NOTE: <build-workspace>/esp-idf/components/fatfs/Kconfig:230: FATFS_PRINT_LLI: 'default 0' is not a valid bool value (only 'y' and 'n' are allowed). Value is treated as 'n'.
+NOTE: <build-workspace>/esp-idf/components/fatfs/Kconfig:235: FATFS_PRINT_FLOAT: 'default 0' is not a valid bool value (only 'y' and 'n' are allowed). Value is treated as 'n'.
+NOTE: <build-workspace>/esp-idf/components/bootloader/Kconfig.projbuild:378: Deprecation notice: hex literal '0' without '0x' prefix detected. In the next major version, hex literals will be required to have a '0x' prefix.
+NOTE: <build-workspace>/esp-idf/components/bootloader/Kconfig.projbuild:418: Deprecation notice: hex literal '0' without '0x' prefix detected. In the next major version, hex literals will be required to have a '0x' prefix.
+NOTE: <build-workspace>/esp-idf/components/bt/host/nimble/Kconfig.in:305: Deprecation notice: hex literal '0' without '0x' prefix detected. In the next major version, hex literals will be required to have a '0x' prefix.
+NOTE: <build-workspace>/esp-idf/components/esp_mm/Kconfig:20: Deprecation notice: hex literal '0' without '0x' prefix detected. In the next major version, hex literals will be required to have a '0x' prefix.
+NOTE: <build-workspace>/esp-idf/components/esp_system/./port/soc/esp32s3/Kconfig.memory:21: Deprecation notice: hex literal '0' without '0x' prefix detected. In the next major version, hex literals will be required to have a '0x' prefix.
+NOTE: <build-workspace>/esp-idf/components/openthread/Kconfig:69: Deprecation notice: hex literal '0' without '0x' prefix detected. In the next major version, hex literals will be required to have a '0x' prefix.
 [1587/1590] Building C object CMakeFiles/NetAllyBuster.elf.dir/project_elf_src_esp32s3.c.obj
 [1588/1590] Linking CXX executable NetAllyBuster.elf
 [1589/1590] Generating binary image from built executable
@@ -25,8 +25,8 @@ esptool v5.6.0
 Creating ESP32-S3 image...
 Merged 2 ELF sections.
 Successfully created ESP32-S3 image.
-Generated /tmp/claude-0/-home-claude/791e26dc-a096-51ce-ae56-188ac75ef100/scratchpad/fw2out/NetAllyBuster.bin
-[1590/1590] cd /tmp/claude-0/-home-claude/791e26dc-a096-51ce-ae56-188ac75ef100/scratchpad/fw2out/esp-idf/esptool_py && /tmp/claude-0/-home-claude/791e26dc-a096-51ce-ae56-188ac75ef100/scratchpad/espressif/python_env/idf5.5_py3.13_env/bin/python /tmp/claude-0/-home-claude/791e26dc-a096-51ce-ae56-188ac75ef100/scratchpad/esp-idf/components/partition_table/check_sizes.py --offset 0x8000 partition --type app /tmp/claude-0/-home-claude/791e26dc-a096-51ce-ae56-188ac75ef100/scratchpad/fw2out/partition_table/partition-table.bin /tmp/claude-0/-home-claude/791e26dc-a096-51ce-ae56-188ac75ef100/scratchpad/fw2out/NetAllyBuster.bin
+Generated <build-workspace>/fw2out/NetAllyBuster.bin
+[1590/1590] cd <build-workspace>/fw2out/esp-idf/esptool_py && <build-workspace>/espressif/python_env/idf5.5_py3.13_env/bin/python <build-workspace>/esp-idf/components/partition_table/check_sizes.py --offset 0x8000 partition --type app <build-workspace>/fw2out/partition_table/partition-table.bin <build-workspace>/fw2out/NetAllyBuster.bin
 NetAllyBuster.bin binary size 0x1e7c70 bytes. Smallest app partition is 0x400000 bytes. 0x218390 bytes (52%) free.
 
 Project build complete. To flash, run:
@@ -35,6 +35,6 @@ or
  idf.py -p PORT flash
 or
  python -m esptool --chip esp32s3 -b 460800 --before default_reset --after hard_reset write_flash --flash_mode dio --flash_size 16MB --flash_freq 80m 0x0 ../fw2out/bootloader/bootloader.bin 0x8000 ../fw2out/partition_table/partition-table.bin 0x10000 ../fw2out/NetAllyBuster.bin
-or from the "/tmp/claude-0/-home-claude/791e26dc-a096-51ce-ae56-188ac75ef100/scratchpad/fw2out" directory
+or from the "<build-workspace>/fw2out" directory
  python -m esptool --chip esp32s3 -b 460800 --before default_reset --after hard_reset write_flash "@flash_args"
 BUILD_EXIT=0

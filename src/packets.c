@@ -1,7 +1,7 @@
-// NetAlly Buster - packet analyzer and network alerts.
-// Every frame the W5500 receives (promiscuous) passes through pkt_process():
-// protocol counters, top talkers, rogue DHCP / IP conflict / IPv6 RA / IGMP querier
-// detection, 802.1Q tags, and a rolling capture that downloads as a .pcap file.
+
+
+
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -17,7 +17,7 @@
 
 static const char *TAG = "pkt";
 
-// ---------------- rolling capture ----------------
+
 #define CAP_N    64
 #define CAP_SNAP 128
 typedef struct { uint32_t s, us; uint16_t len, cap; uint8_t d[CAP_SNAP]; } capf_t;
@@ -25,13 +25,13 @@ static capf_t s_cap[CAP_N];
 static int s_cap_head, s_cap_cnt;
 static portMUX_TYPE s_mux = portMUX_INITIALIZER_UNLOCKED;
 
-// ---------------- talkers ----------------
+
 #define TALK_N 24
 typedef struct { uint8_t mac[6]; uint32_t ip; uint32_t frames, bytes, bc; int64_t last; } talker_t;
 static talker_t s_talk[TALK_N];
 
 static uint8_t  s_my_mac[6];
-static uint32_t s_my_ip, s_gw_ip;   // network order
+static uint32_t s_my_ip, s_gw_ip;
 static uint8_t  s_ra_mac[2][6];
 static uint16_t s_vlans[8];
 static int      s_vlan_n;
@@ -64,7 +64,7 @@ static void note_dhcp_server(const uint8_t *ip)
     }
 }
 
-// DHCP message type (option 53) from a BOOTP payload
+
 static int dhcp_type(const uint8_t *b, int len)
 {
     if (len < 240 || b[236] != 99 || b[237] != 130 || b[238] != 83 || b[239] != 99) return 0;
@@ -80,7 +80,7 @@ static int dhcp_type(const uint8_t *b, int len)
 void pkt_process(const uint8_t *buf, uint32_t len)
 {
     if (len < 14) return;
-    // rolling capture
+
     struct timeval tv; gettimeofday(&tv, NULL);
     portENTER_CRITICAL(&s_mux);
     capf_t *c = &s_cap[s_cap_head];
@@ -149,7 +149,7 @@ void pkt_process(const uint8_t *buf, uint32_t len)
         }
     } else if (et == 0x86DD && pl >= 40) {
         g.pk[PK_IPV6]++;
-        if (p[6] == 58 && pl >= 41 && p[40] == 134) {          // ICMPv6 router advertisement
+        if (p[6] == 58 && pl >= 41 && p[40] == 134) {
             bool known = false;
             for (int i = 0; i < g.ra_count && i < 2; i++) if (!memcmp(s_ra_mac[i], src, 6)) known = true;
             if (!known && g.ra_count < 2) {
@@ -169,14 +169,14 @@ void pkt_process(const uint8_t *buf, uint32_t len)
         g.pk[PK_ARP]++;
         uint32_t sip; memcpy(&sip, p + 14, 4);
         if (sip) t->ip = sip;
-        // someone else answering for our address
+
         if (s_my_ip && sip == s_my_ip && memcmp(p + 8, s_my_mac, 6)) {
             if (!g.ip_conflict[0]) {
                 mac_str(g.ip_conflict, p + 8);
                 evlog("IP CONFLICT: %s also claims %s", g.ip_conflict, g.ip);
             }
         }
-        // learn the gateway's MAC; a change to a different MAC is the classic ARP-spoof signature
+
         if (s_gw_ip && sip == s_gw_ip) {
             char m[18]; mac_str(m, p + 8);
             if (!g.gw_mac[0]) snprintf(g.gw_mac, sizeof(g.gw_mac), "%s", m);
@@ -194,9 +194,9 @@ void pkt_process(const uint8_t *buf, uint32_t len)
     } else g.pk[PK_OTHER]++;
 }
 
-// ---------------------------------------------------------------------
-// alerts
-// ---------------------------------------------------------------------
+
+
+
 static void add(int lvl, const char *fmt, ...)
 {
     if (g.alert_n >= MAX_ALERTS) return;
@@ -210,7 +210,7 @@ static void add(int lvl, const char *fmt, ...)
 void alerts_update(void)
 {
     static int last_bad = 0;
-    // keep our own address handy for conflict detection
+
     struct in_addr a;
     s_my_ip = (g.eth_ip && inet_aton(g.ip, &a)) ? a.s_addr : 0;
     { struct in_addr gwa; s_gw_ip = (g.eth_ip && g.gw[0] && inet_aton(g.gw, &gwa)) ? gwa.s_addr : 0; }
@@ -255,7 +255,7 @@ void alerts_update(void)
     last_bad = bad;
 }
 
-// busiest sender, for the screen
+
 void pkt_top_talker(char *out, size_t n)
 {
     talker_t best = {0};
@@ -272,7 +272,7 @@ void pkt_top_talker(char *out, size_t n)
     snprintf(out, n, "%s %u%%", who, (unsigned)(total ? best.frames * 100 / total : 0));
 }
 
-// forget what we learned about the old network when the cable moves
+
 void pkt_reset(void)
 {
     bst_lock();
@@ -284,9 +284,9 @@ void pkt_reset(void)
     bst_unlock();
 }
 
-// ---------------------------------------------------------------------
-// one-line decode of a captured frame (for the live packet list)
-// ---------------------------------------------------------------------
+
+
+
 static void summarize(const capf_t *f, char *src, char *dst, char *proto, char *info)
 {
     const uint8_t *b = f->d;
@@ -356,7 +356,7 @@ static int cap_snapshot(capf_t **out)
     if (!c) return -1;
     portENTER_CRITICAL(&s_mux);
     int n = s_cap_cnt, head = s_cap_head;
-    // oldest first
+
     for (int i = 0; i < n; i++) c[i] = s_cap[(head - n + i + CAP_N) % CAP_N];
     portEXIT_CRITICAL(&s_mux);
     *out = c;
@@ -371,7 +371,7 @@ static void ago(char *o, size_t n, uint32_t s, uint32_t us)
     snprintf(o, n, "%ld.%01lds", ms / 1000, (ms % 1000) / 100);
 }
 
-// GET /api/packets
+
 esp_err_t pkt_json_handler(httpd_req_t *req)
 {
     static const char *names[PK_COUNT] = { "IPv4", "IPv6", "ARP", "LLDP", "CDP", "STP", "802.1Q", "Other",
@@ -385,7 +385,7 @@ esp_err_t pkt_json_handler(httpd_req_t *req)
     o += snprintf(b + o, 1600 - o, "},\"talkers\":[");
     httpd_resp_sendstr_chunk(req, b);
 
-    // top 10 talkers by frames
+
     talker_t top[TALK_N];
     bst_lock(); memcpy(top, s_talk, sizeof(top)); bst_unlock();
     for (int i = 0; i < TALK_N; i++) for (int j = i + 1; j < TALK_N; j++)
@@ -420,7 +420,7 @@ esp_err_t pkt_json_handler(httpd_req_t *req)
     return httpd_resp_sendstr_chunk(req, NULL);
 }
 
-// GET /api/pcap - last 64 frames (first 128 bytes each) for Wireshark
+
 esp_err_t pkt_pcap_handler(httpd_req_t *req)
 {
     httpd_resp_set_type(req, "application/vnd.tcpdump.pcap");

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Flash the three verified build images without erasing saved NVS settings.
+
 set -euo pipefail
 cd -- "$(dirname -- "${BASH_SOURCE[0]}")"
 if [[ ! -f firmware/firmware.bin || ! -f firmware/bootloader.bin || ! -f firmware/partition-table.bin ]]; then

@@ -1,4 +1,4 @@
-// NetAlly Buster - web server: phone/laptop GUI, JSON API, captive-portal redirects
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -81,7 +81,7 @@ static esp_err_t ok(httpd_req_t *req)
     return httpd_resp_sendstr(req, "{\"ok\":true}");
 }
 
-// POST /api/action?do=autotest|scan|blink|reboot|sweep
+
 static esp_err_t h_action(httpd_req_t *req)
 {
     char a[16] = "";
@@ -100,7 +100,7 @@ static esp_err_t h_action(httpd_req_t *req)
     return ok(req);
 }
 
-// POST /api/tool?type=ping|trace|dns|port&arg=host
+
 static esp_err_t h_tool(httpd_req_t *req)
 {
     char t[12] = "", arg[64] = "";
@@ -111,7 +111,7 @@ static esp_err_t h_tool(httpd_req_t *req)
     return ok(req);
 }
 
-// POST /api/wifi  body: ssid=...&pass=...
+
 static esp_err_t h_wifi(httpd_req_t *req)
 {
     char body[200] = "", ssid[33] = "", pass[65] = "";
@@ -126,7 +126,7 @@ static esp_err_t h_wifi(httpd_req_t *req)
     return ok(req);
 }
 
-// GET /api/settings
+
 static esp_err_t h_settings_get(httpd_req_t *req)
 {
     char b[2048];
@@ -136,7 +136,7 @@ static esp_err_t h_settings_get(httpd_req_t *req)
     return httpd_resp_send(req, b, n);
 }
 
-// POST /api/settings  body: key=value&key=value...
+
 static esp_err_t h_settings_post(httpd_req_t *req)
 {
     char body[1024];
@@ -162,7 +162,7 @@ static esp_err_t h_settings_post(httpd_req_t *req)
     return httpd_resp_sendstr(req, (flags & CFG_RESTART) ? "{\"ok\":true,\"restart\":true}" : "{\"ok\":true,\"restart\":false}");
 }
 
-// ------- switch configurator -------
+
 static bool form_val(const char *body, const char *key, char *out, size_t cap)
 {
     if (httpd_query_key_value(body, key, out, cap) != ESP_OK) { out[0] = 0; return false; }
@@ -206,7 +206,7 @@ static esp_err_t h_switch_apply(httpd_req_t *req)
     return ok(req);
 }
 
-// GET /api/hosts - device inventory from the last Find Hosts sweep
+
 static esp_err_t h_hosts(httpd_req_t *req)
 {
     char *b = malloc(4096);
@@ -219,7 +219,7 @@ static esp_err_t h_hosts(httpd_req_t *req)
     return r;
 }
 
-// GET /api/events
+
 static esp_err_t h_events(httpd_req_t *req)
 {
     char *b = malloc(4096);
@@ -232,7 +232,7 @@ static esp_err_t h_events(httpd_req_t *req)
     return r;
 }
 
-// GET /api/report - plain text summary to paste into a ticket
+
 static esp_err_t h_report(httpd_req_t *req)
 {
     static const char *stn[] = { "--", "running", "PASS", "WARN", "FAIL" };
@@ -286,7 +286,7 @@ static esp_err_t h_report(httpd_req_t *req)
     return r;
 }
 
-// anything unknown -> back to the GUI. This is what makes phones pop the portal open.
+
 static esp_err_t h_redirect(httpd_req_t *req, httpd_err_code_t err)
 {
     (void)err;
@@ -298,7 +298,7 @@ static esp_err_t h_redirect(httpd_req_t *req, httpd_err_code_t err)
         if (local.sin6_family == AF_INET) {
             inet_ntop(AF_INET, &((struct sockaddr_in *)&local)->sin_addr, ip, sizeof(ip));
         } else {
-            // IPv4-mapped IPv6 address: last 4 bytes
+
             inet_ntop(AF_INET, &local.sin6_addr.un.u32_addr[3], ip, sizeof(ip));
         }
         if (ip[0]) snprintf(loc, sizeof(loc), "http://%s/", ip);

@@ -1,4 +1,4 @@
-// NetAlly Buster - battery monitor (1-cell Li-ion through a divider on BATT_ADC_GPIO)
+
 #include <stdio.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -13,7 +13,7 @@
 static const char *TAG = "batt";
 static adc_oneshot_unit_handle_t s_adc;
 
-// ADC1 is shared with the smoke sensor; only one driver instance may own it
+
 adc_oneshot_unit_handle_t adc1_handle(void)
 {
     static adc_oneshot_unit_handle_t h;
@@ -28,7 +28,7 @@ adc_oneshot_unit_handle_t adc1_handle(void)
 static adc_cali_handle_t s_cali;
 static adc_channel_t s_chan;
 
-// resting Li-ion voltage -> percent
+
 static int volts_to_pct(float v)
 {
     static const float tv[] = { 4.20f, 4.10f, 4.00f, 3.90f, 3.80f, 3.70f, 3.60f, 3.50f, 3.40f, 3.30f };
@@ -55,7 +55,7 @@ static void batt_task(void *a)
                 n++;
             }
             float v = n ? (sum / (float)n) / 1000.0f * BATT_DIVIDER : 0;
-            avg = (avg < 0.5f) ? v : avg * 0.8f + v * 0.2f;    // smooth out load spikes
+            avg = (avg < 0.5f) ? v : avg * 0.8f + v * 0.2f;
             g.batt_v = avg;
             g.batt_present = avg > 2.8f && avg < 4.6f;
             g.batt_pct = g.batt_present ? volts_to_pct(avg) : 0;

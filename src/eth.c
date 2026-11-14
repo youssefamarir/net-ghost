@@ -1,5 +1,5 @@
-// NetAlly Buster - Ethernet port: W5500 driver, wire statistics,
-// switch discovery (LLDP / CDP / FDP), spanning tree, port blink.
+
+
 #include <stdio.h>
 #include <string.h>
 #include "freertos/FreeRTOS.h"
@@ -25,9 +25,9 @@ static int64_t s_link_t0 = 0;
 
 #define W5500_PHYCFGR  (0x002E << 16)
 
-// ---------------------------------------------------------------------
-// small string helpers
-// ---------------------------------------------------------------------
+
+
+
 static void scopy(char *dst, size_t cap, const uint8_t *src, int len)
 {
     if (len < 0) len = 0;
@@ -35,7 +35,7 @@ static void scopy(char *dst, size_t cap, const uint8_t *src, int len)
     int o = 0;
     for (int i = 0; i < len; i++) {
         uint8_t c = src[i];
-        if (c == '\r' || c == '\n') { if (o) break; else continue; }   // first line only
+        if (c == '\r' || c == '\n') { if (o) break; else continue; }
         dst[o++] = (c >= 32 && c < 127) ? c : '?';
     }
     dst[o] = 0;
@@ -49,8 +49,8 @@ static void fmt_mac(char *dst, size_t cap, const uint8_t *m)
 static void caps_str(char *out, size_t cap, uint16_t bits, bool cdp)
 {
     out[0] = 0;
-    // LLDP: 1 repeater, 2 bridge, 3 WLAN AP, 4 router, 5 phone, 7 station
-    // CDP : 0 router, 1 TB bridge, 2 SR bridge, 3 switch, 4 host, 5 IGMP, 6 repeater, 7 phone
+
+
     static const char *l[] = {"Other", "Repeater", "Switch", "AP", "Router", "Phone", "DOCSIS", "Station"};
     static const char *c[] = {"Router", "Bridge", "SRBridge", "Switch", "Host", "IGMP", "Repeater", "Phone"};
     for (int i = 0; i < 8; i++) {
@@ -84,9 +84,9 @@ static void mark_found(const char *proto)
     if (!was) ui_post_event(EV_SWITCH);
 }
 
-// ---------------------------------------------------------------------
-// LLDP (ethertype 0x88CC)
-// ---------------------------------------------------------------------
+
+
+
 static void parse_lldp(const uint8_t *p, int len)
 {
     char name[48] = "", port[40] = "", desc[48] = "", sysd[96] = "", mgmt[16] = "", chassis[18] = "";
@@ -103,10 +103,10 @@ static void parse_lldp(const uint8_t *p, int len)
         const uint8_t *v = &p[i];
         if (type == 127) poe_lldp(&power, v, tl);
         switch (type) {
-        case 1:  // chassis id
+        case 1:
             if (tl == 7 && v[0] == 4) fmt_mac(chassis, sizeof(chassis), v + 1);
             break;
-        case 2:  // port id
+        case 2:
             if (tl == 7 && v[0] == 3) fmt_mac(port, sizeof(port), v + 1);
             else if (tl > 1) scopy(port, sizeof(port), v + 1, tl - 1);
             got = true;
@@ -119,13 +119,13 @@ static void parse_lldp(const uint8_t *p, int len)
         case 8:  if (tl >= 6 && v[1] == 1) snprintf(mgmt, sizeof(mgmt), "%d.%d.%d.%d", v[2], v[3], v[4], v[5]); break;
         case 127:
             if (tl < 4) break;
-            if (v[0] == 0x00 && v[1] == 0x80 && v[2] == 0xC2) {          // IEEE 802.1
+            if (v[0] == 0x00 && v[1] == 0x80 && v[2] == 0xC2) {
                 if (v[3] == 1 && tl >= 6) pvid = (v[4] << 8) | v[5];
                 else if (v[3] == 3 && tl >= 7) { vlan_names++; if (first_vlan < 0) first_vlan = (v[4] << 8) | v[5]; }
-            } else if (v[0] == 0x00 && v[1] == 0x12 && v[2] == 0x0F) {   // IEEE 802.3
+            } else if (v[0] == 0x00 && v[1] == 0x12 && v[2] == 0x0F) {
                 if (v[3] == 1 && tl >= 9) {
                     mau_str(duplex, sizeof(duplex), (v[7] << 8) | v[8]);
-                    uint16_t adv = (v[5] << 8) | v[6];          // RFC 3636 bits, bit 0 = MSB
+                    uint16_t adv = (v[5] << 8) | v[6];
                     bool s10 = adv & 0x6000, s100 = adv & 0x0F00, s1000 = adv & 0x0003;
                     snprintf(advs, sizeof(advs), "%s%s%s", s10 ? "10/" : "", s100 ? "100/" : "", s1000 ? "1000/" : "");
                     if (advs[0]) advs[strlen(advs) - 1] = 0;
@@ -134,11 +134,11 @@ static void parse_lldp(const uint8_t *p, int len)
                     bool supported = v[4] & 0x02, enabled = v[4] & 0x04;
                     snprintf(poe, sizeof(poe), "%s class %d", enabled ? ((v[4] & 1) ? "PSE enabled" : "PD enabled") : (supported ? "PoE supported" : "no support"), v[6] ? v[6] - 1 : 0);
                 }
-            } else if (v[0] == 0x00 && v[1] == 0x12 && v[2] == 0xBB) {   // LLDP-MED
-                if (v[3] == 2 && tl >= 8 && v[4] == 1) {                    // network policy: voice
+            } else if (v[0] == 0x00 && v[1] == 0x12 && v[2] == 0xBB) {
+                if (v[3] == 2 && tl >= 8 && v[4] == 1) {
                     uint32_t x = (v[5] << 16) | (v[6] << 8) | v[7];
                     if (!(x & 0x800000)) voice = (x >> 9) & 0xFFF;
-                } else if (v[3] == 4 && tl >= 7) {                          // extended power
+                } else if (v[3] == 4 && tl >= 7) {
                     int dw = (v[5] << 8) | v[6];
                     snprintf(poe, sizeof(poe), "%d.%d W adv", dw / 10, dw % 10);
                 } else if (v[3] == 10 && tl > 4) {
@@ -179,12 +179,12 @@ static void parse_lldp(const uint8_t *p, int len)
     ESP_LOGI(TAG, "LLDP %s port=%s vlan=%s voice=%d", g.sw_name, port, g.sw_vlan, voice);
 }
 
-// ---------------------------------------------------------------------
-// CDP / FDP (SNAP, OUI 00000C / 00E052, PID 2000)
-// ---------------------------------------------------------------------
+
+
+
 static void cdp_addr(const uint8_t *v, int vl, char *out, size_t cap)
 {
-    // count(4) then per entry: ptype(1) plen(1) proto(plen) alen(2) addr
+
     if (vl < 4) return;
     int n = (v[0] << 24) | (v[1] << 16) | (v[2] << 8) | v[3];
     int i = 4;
@@ -265,16 +265,16 @@ static void parse_cdp(const uint8_t *p, int len, const char *proto)
     ESP_LOGI(TAG, "%s %s port=%s vlan=%d voice=%d", proto, dev, port, vlan, voice);
 }
 
-// ---------------------------------------------------------------------
-// Spanning tree BPDU (LLC 42 42 03)
-// ---------------------------------------------------------------------
+
+
+
 static void parse_bpdu(const uint8_t *p, int len)
 {
-    // p points at LLC header
+
     if (len < 3 + 35 || p[0] != 0x42 || p[1] != 0x42) return;
     const uint8_t *b = p + 3;
-    if (b[0] != 0 || b[1] != 0) return;     // protocol id
-    if (b[3] != 0x00 && b[3] != 0x02) return;  // config BPDU or RST/MST
+    if (b[0] != 0 || b[1] != 0) return;
+    if (b[3] != 0x00 && b[3] != 0x02) return;
     int prio = (b[5] << 8) | b[6];
     char mac[18]; fmt_mac(mac, sizeof(mac), b + 7);
     bst_lock();
@@ -286,9 +286,9 @@ static void parse_bpdu(const uint8_t *p, int len)
     bst_unlock();
 }
 
-// ---------------------------------------------------------------------
-// every received frame passes through here before the IP stack
-// ---------------------------------------------------------------------
+
+
+
 static uint32_t sec_frames, sec_bytes, sec_bc, sec_mc;
 
 static esp_err_t eth_input_hook(esp_eth_handle_t eth, uint8_t *buf, uint32_t len, void *priv)
@@ -318,7 +318,7 @@ static esp_err_t eth_input_hook(esp_eth_handle_t eth, uint8_t *buf, uint32_t len
     return esp_netif_receive(g_eth_netif, buf, len, priv);
 }
 
-// once per second: rates, link speed, DHCP lease info
+
 static void eth_stats_task(void *a)
 {
     (void)a;
@@ -337,7 +337,7 @@ static void eth_stats_task(void *a)
             if (esp_eth_ioctl(s_eth, ETH_CMD_G_SPEED, &sp) == ESP_OK) g.eth_speed = sp == ETH_SPEED_100M ? 100 : 10;
             if (esp_eth_ioctl(s_eth, ETH_CMD_G_DUPLEX_MODE, &du) == ESP_OK) g.eth_full = du == ETH_DUPLEX_FULL;
         }
-        // switch info expires if the switch stops announcing (TTL, min 180s)
+
         if (g.sw_found) {
             int ttl = g.sw_ttl > 0 ? g.sw_ttl : 180;
             if (ttl < 180) ttl = 180;
@@ -347,9 +347,9 @@ static void eth_stats_task(void *a)
     }
 }
 
-// ---------------------------------------------------------------------
-// events
-// ---------------------------------------------------------------------
+
+
+
 static void clear_switch(void)
 {
     bst_lock();
@@ -397,7 +397,7 @@ static void got_ip_handler(void *arg, esp_event_base_t base, int32_t id, void *d
     if (esp_netif_get_dns_info(g_eth_netif, ESP_NETIF_DNS_MAIN, &dns) == ESP_OK)
         snprintf(g.dns, sizeof(g.dns), IPSTR, IP2STR(&dns.ip.u_addr.ip4));
     g.dhcp_ms = cfg.static_ip ? 0 : (int)(now_ms() - s_link_t0);
-    // DHCP server + lease straight from lwIP
+
     struct netif *nif = esp_netif_get_netif_impl(g_eth_netif);
     struct dhcp *d = (nif && !cfg.static_ip) ? netif_dhcp_data(nif) : NULL;
     if (cfg.static_ip) { snprintf(g.dhcp_srv, sizeof(g.dhcp_srv), "static"); g.lease_s = 0; }
@@ -411,9 +411,9 @@ static void got_ip_handler(void *arg, esp_event_base_t base, int32_t id, void *d
     if (!g.blinking && cfg.autotest) autotest_start();
 }
 
-// ---------------------------------------------------------------------
-// port blink: power the PHY down/up so the switch port LED flashes
-// ---------------------------------------------------------------------
+
+
+
 static void phy_write(uint32_t v)
 {
     esp_eth_phy_reg_rw_data_t rw = { .reg_addr = W5500_PHYCFGR, .reg_value_p = &v };
@@ -426,16 +426,16 @@ static void blink_task(void *arg)
     ESP_LOGI(TAG, "port blink %ds", secs);
     for (int i = 0; i < secs; i++) {
         bool down = (i & 1) == 0;
-        uint32_t mode = down ? 0x30 : 0x38;     // opmode 110 = power down, 111 = all capable
-        phy_write(0x40 | mode);                 // OPMD=1, RST=0
+        uint32_t mode = down ? 0x30 : 0x38;
+        phy_write(0x40 | mode);
         vTaskDelay(pdMS_TO_TICKS(20));
-        phy_write(0xC0 | mode);                 // RST=1 applies it
+        phy_write(0xC0 | mode);
         vTaskDelay(pdMS_TO_TICKS(980));
     }
     phy_write(0x40 | 0x38);
     vTaskDelay(pdMS_TO_TICKS(20));
     phy_write(0xC0 | 0x38);
-    vTaskDelay(pdMS_TO_TICKS(4000));            // let link + DHCP settle
+    vTaskDelay(pdMS_TO_TICKS(4000));
     g.blinking = false;
     vTaskDelete(NULL);
 }
@@ -451,9 +451,9 @@ void eth_blink_start(int seconds)
     xTaskCreate(blink_task, "blink", 3072, (void *)(intptr_t)seconds, 4, NULL);
 }
 
-// ---------------------------------------------------------------------
-// static IP / DHCP
-// ---------------------------------------------------------------------
+
+
+
 void eth_apply_ip_config(void)
 {
     if (!g_eth_netif) return;
@@ -499,7 +499,7 @@ void eth_dhcp_renew(void)
     evlog("DHCP release/renew");
 }
 
-// ---------------------------------------------------------------------
+
 void eth_start(void)
 {
     poe_reset(&g.poe);
@@ -512,7 +512,7 @@ void eth_start(void)
     spi_bus_config_t b = { .mosi_io_num = ETH_MOSI, .miso_io_num = ETH_MISO, .sclk_io_num = ETH_CLK,
                            .quadwp_io_num = -1, .quadhd_io_num = -1 };
     ESP_ERROR_CHECK(spi_bus_initialize(SPI2_HOST, &b, SPI_DMA_CH_AUTO));
-    spi_device_interface_config_t d = { .mode = 0, .clock_speed_hz = 20 * 1000 * 1000,   // on-board W5500, short traces
+    spi_device_interface_config_t d = { .mode = 0, .clock_speed_hz = 20 * 1000 * 1000,
                                         .spics_io_num = ETH_CS, .queue_size = 20 };
     eth_w5500_config_t w5500 = ETH_W5500_DEFAULT_CONFIG(SPI2_HOST, &d);
     w5500.int_gpio_num = ETH_INT;
@@ -537,7 +537,7 @@ void eth_start(void)
     esp_eth_ioctl(s_eth, ETH_CMD_S_MAC_ADDR, m);
     fmt_mac(g.mac, sizeof(g.mac), m);
 
-    // Ethernet is the port under test, so it wins the default route over Wi-Fi
+
     esp_netif_inherent_config_t base = ESP_NETIF_INHERENT_DEFAULT_ETH();
     base.route_prio = 200;
     esp_netif_config_t ncfg = { .base = &base, .stack = ESP_NETIF_NETSTACK_DEFAULT_ETH };
@@ -550,7 +550,7 @@ void eth_start(void)
     xTaskCreate(eth_stats_task, "eth_stats", 3072, NULL, 3, NULL);
 }
 
-// An advertisement is evidence of switch capabilities, not proof of live PoE.
+
 bool poe_is_fresh(void)
 {
     int ttl = g.sw_ttl > 0 ? g.sw_ttl : 120;

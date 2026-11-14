@@ -1,4 +1,4 @@
-// NetAlly Buster - AutoTest + technician tools (ping, traceroute, DNS, TCP port, subnet sweep)
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -27,9 +27,9 @@ static const char *TAG = "tools";
 extern esp_netif_t *g_eth_netif, *g_sta_netif;
 static int dns_ptr(uint32_t server, uint32_t ip, bool eth, char *out, size_t cap);
 
-// =====================================================================
-// low level helpers
-// =====================================================================
+
+
+
 static int64_t us(void) { return esp_timer_get_time(); }
 
 static void bind_eth(int s)
@@ -81,7 +81,7 @@ static void icmp_send(int s, uint32_t dst, uint16_t id, uint16_t seq)
     sendto(s, &e, sizeof(e), 0, (struct sockaddr *)&to, sizeof(to));
 }
 
-// wait for a reply belonging to (id, seq). returns ICMP type (0 echo reply, 11 ttl exceeded, 3 unreachable) or -1
+
 static int icmp_wait(int s, uint16_t id, uint16_t seq, int64_t deadline_us, uint32_t *from)
 {
     uint8_t buf[128];
@@ -135,7 +135,7 @@ static pingres_t ping_run(uint32_t dst, int count, bool eth, void (*line)(const 
     return r;
 }
 
-// raw DNS A query straight to one server (so the test really checks *that* server)
+
 static int dns_query(uint32_t server, const char *name, bool eth, uint32_t *answer, int *rcode)
 {
     uint8_t q[300]; int n = 0;
@@ -168,7 +168,7 @@ static int dns_query(uint32_t server, const char *name, bool eth, uint32_t *answ
     *rcode = r[3] & 0x0F;
     int an = (r[6] << 8) | r[7];
     int i = 12;
-    while (i < rl && r[i]) i += r[i] + 1;   // skip question name
+    while (i < rl && r[i]) i += r[i] + 1;
     i += 5;
     *answer = 0;
     for (int k = 0; k < an && i + 12 <= rl; k++) {
@@ -183,7 +183,7 @@ static int dns_query(uint32_t server, const char *name, bool eth, uint32_t *answ
     return ms;
 }
 
-// TCP connect time (ms) or -1
+
 static int tcp_probe(uint32_t ip, int port, bool eth, int timeout_ms)
 {
     int s = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
@@ -209,9 +209,9 @@ static int tcp_probe(uint32_t ip, int port, bool eth, int timeout_ms)
     return ms;
 }
 
-// =====================================================================
-// AutoTest
-// =====================================================================
+
+
+
 static void step(int i, tstate_t st, const char *val, const char *info)
 {
     g.ts[i].st = st;
@@ -226,7 +226,7 @@ static void autotest_task(void *a)
     for (int i = 0; i < TS_COUNT; i++) step(i, T_IDLE, "", "");
     g.test_runs++;
 
-    // 1. link
+
     step(TS_LINK, T_RUN, "", "");
     for (int i = 0; i < 30 && !g.eth_link; i++) vTaskDelay(pdMS_TO_TICKS(100));
     if (!g.eth_link) {
@@ -239,7 +239,7 @@ static void autotest_task(void *a)
     snprintf(b, sizeof(b), "%d Mb/s %s duplex", g.eth_speed, g.eth_full ? "full" : "half");
     step(TS_LINK, (g.eth_speed >= 100 && g.eth_full) ? T_PASS : T_WARN, v, b);
 
-    // 2. DHCP
+
     step(TS_DHCP, T_RUN, "", "");
     for (int i = 0; i < 150 && !g.eth_ip && g.eth_link; i++) vTaskDelay(pdMS_TO_TICKS(100));
     if (!g.eth_ip) {
@@ -255,7 +255,7 @@ static void autotest_task(void *a)
     snprintf(b, sizeof(b), "%s from %s", g.ip, g.dhcp_srv);
     step(TS_DHCP, g.dhcp_ms > 5000 ? T_WARN : T_PASS, v, b);
 
-    // 3. gateway
+
     step(TS_GW, T_RUN, "", "");
     {
         struct in_addr gw;
@@ -270,7 +270,7 @@ static void autotest_task(void *a)
         }
     }
 
-    // 4. DNS
+
     step(TS_DNS, T_RUN, "", "");
     uint32_t web_ip = 0;
     {
@@ -289,7 +289,7 @@ static void autotest_task(void *a)
         }
     }
 
-    // 5. internet (TCP 443)
+
     step(TS_NET, T_RUN, "", "");
     {
         uint32_t tgt = web_ip;
@@ -304,7 +304,7 @@ static void autotest_task(void *a)
     }
 
 sw:
-    // 6. switch discovery (give LLDP/CDP up to ~65 s after link up)
+
     step(TS_SW, T_RUN, "", "");
     while (!g.sw_found && g.eth_link && now_ms() - g.link_up_ms < 65000) vTaskDelay(pdMS_TO_TICKS(250));
     if (g.sw_found) {
@@ -335,9 +335,9 @@ void autotest_start(void)
     if (xTaskCreate(autotest_task, "autotest", 6144, NULL, 4, NULL) != pdPASS) g.test_running = false;
 }
 
-// =====================================================================
-// tools (results go to a text log the web GUI shows like a terminal)
-// =====================================================================
+
+
+
 static char s_log[2048];
 static int  s_log_len;
 static char s_type[12], s_arg[64];
@@ -348,7 +348,7 @@ static void tlog(const char *fmt, ...)
     va_list ap; va_start(ap, fmt); vsnprintf(line, sizeof(line), fmt, ap); va_end(ap);
     bst_lock();
     int L = strlen(line);
-    if (s_log_len + L + 2 >= (int)sizeof(s_log)) {           // drop the oldest half
+    if (s_log_len + L + 2 >= (int)sizeof(s_log)) {
         int cut = s_log_len / 2;
         while (cut < s_log_len && s_log[cut] != '\n') cut++;
         memmove(s_log, s_log + cut + 1, s_log_len - cut);
@@ -472,7 +472,7 @@ static void tool_sweep(void)
         }
     }
     close(s);
-    // enrich each host with its MAC (from the ARP cache the pings filled) and a reverse-DNS name
+
     struct netif *lw = esp_netif_get_netif_impl(eth ? g_eth_netif : g_sta_netif);
     struct in_addr dsrv; const char *dns = eth ? g.dns : "8.8.8.8";
     bool have_dns = inet_aton(dns, &dsrv) && dsrv.s_addr;
@@ -489,9 +489,9 @@ static void tool_sweep(void)
     g.sweep_running = false;
 }
 
-// ---------------------------------------------------------------------
-// link quality: 100 pings at 10/s -> loss, latency, jitter
-// ---------------------------------------------------------------------
+
+
+
 static void quality_task(void *a)
 {
     (void)a;
@@ -547,9 +547,9 @@ void quality_start(void)
     if (xTaskCreate(quality_task, "quality", 4096, NULL, 4, NULL) != pdPASS) g.q_running = false;
 }
 
-// ---------------------------------------------------------------------
-// internet download speed (HTTPS, through the Ethernet port when it has an IP)
-// ---------------------------------------------------------------------
+
+
+
 static void tool_speed(bool wifi)
 {
     speed_test_run(wifi);
@@ -561,14 +561,14 @@ static void tool_speed(bool wifi)
     tlog("HTTPS sample of THIS tester, not a measurement of your ISP plan or Wi-Fi PHY rate.");
 }
 
-// ---------------------------------------------------------------------
-// common TCP ports on one host
-// ---------------------------------------------------------------------
-// =====================================================================
-// network device inventory (for Find Hosts): IP, MAC, vendor, name
-// =====================================================================
 
-// A tiny OUI table for the devices people most often have at home.
+
+
+
+
+
+
+
 const char *mac_vendor(const uint8_t *m)
 {
     struct { uint8_t p[3]; const char *n; } t[] = {
@@ -590,7 +590,7 @@ const char *mac_vendor(const uint8_t *m)
     return "";
 }
 
-// Reverse-DNS (PTR) name for an IP, best effort. Returns name length or 0.
+
 static int dns_ptr(uint32_t server, uint32_t ip, bool eth, char *out, size_t cap)
 {
     out[0] = 0;
@@ -598,11 +598,11 @@ static int dns_ptr(uint32_t server, uint32_t ip, bool eth, char *out, size_t cap
     uint16_t id = esp_random() & 0xFFFF;
     q[n++] = id >> 8; q[n++] = id & 0xFF; q[n++] = 0x01; q[n++] = 0x00;
     q[n++] = 0; q[n++] = 1; q[n++] = 0; q[n++] = 0; q[n++] = 0; q[n++] = 0; q[n++] = 0; q[n++] = 0;
-    uint8_t *b = (uint8_t *)&ip;                 // build d.c.b.a.in-addr.arpa
+    uint8_t *b = (uint8_t *)&ip;
     for (int k = 3; k >= 0; k--) { char lbl[4]; int L = snprintf(lbl, sizeof(lbl), "%d", b[k]); q[n++] = L; memcpy(q + n, lbl, L); n += L; }
     const char *suf[] = { "in-addr", "arpa" };
     for (int k = 0; k < 2; k++) { int L = strlen(suf[k]); q[n++] = L; memcpy(q + n, suf[k], L); n += L; }
-    q[n++] = 0; q[n++] = 0; q[n++] = 12; q[n++] = 0; q[n++] = 1;   // QTYPE PTR, QCLASS IN
+    q[n++] = 0; q[n++] = 0; q[n++] = 12; q[n++] = 0; q[n++] = 1;
     int s = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
     if (s < 0) return 0;
     if (eth) bind_eth(s);
@@ -617,13 +617,13 @@ static int dns_ptr(uint32_t server, uint32_t ip, bool eth, char *out, size_t cap
     int an = (r[6] << 8) | r[7];
     int i = 12;
     while (i < rl && r[i]) i += r[i] + 1;
-    i += 5;                                                  // skip question
+    i += 5;
     for (int k = 0; k < an && i + 12 <= rl; k++) {
         if ((r[i] & 0xC0) == 0xC0) i += 2; else { while (i < rl && r[i]) i += r[i] + 1; i++; }
         uint16_t type = (r[i] << 8) | r[i + 1];
         uint16_t dl = (r[i + 8] << 8) | r[i + 9];
         i += 10;
-        if (type == 12) {                                     // PTR: decode the name
+        if (type == 12) {
             int j = i, o = 0, guard = 0;
             while (j < rl && r[j] && guard++ < 20) {
                 if ((r[j] & 0xC0) == 0xC0) { j = ((r[j] & 0x3F) << 8) | r[j + 1]; continue; }
@@ -657,21 +657,21 @@ int hosts_json(char *b, size_t cap)
     return o;
 }
 
-// =====================================================================
-// SECURITY CHECKS (home-network hygiene, read-only).
-// These look for weak settings and report them. They do not attack anything.
-// One runs at a time (serialized by tool_running). Each fills its own result
-// so its screen page and the web GUI can show it live.
-// =====================================================================
+
+
+
+
+
+
 static void sec_line(struct secres *r, const char *fmt, ...);
-// If the Wi-Fi tools have no scan results yet, run a scan and wait for it.
+
 static void ensure_wifi_scan(struct secres *r)
 {
     if (g.ap_count > 0) return;
     if (r) { snprintf(r->verdict, sizeof(r->verdict), "SCANNING..."); sec_line(r, "Running a Wi-Fi scan..."); r->done = 10; }
     wifi_scan_start();
-    for (int i = 0; i < 15 && !g.scanning; i++) vTaskDelay(pdMS_TO_TICKS(100));   // wait for it to begin
-    for (int i = 0; i < 90 && g.scanning; i++) vTaskDelay(pdMS_TO_TICKS(100));    // up to ~9 s to finish
+    for (int i = 0; i < 15 && !g.scanning; i++) vTaskDelay(pdMS_TO_TICKS(100));
+    for (int i = 0; i < 90 && g.scanning; i++) vTaskDelay(pdMS_TO_TICKS(100));
     vTaskDelay(pdMS_TO_TICKS(300));
 }
 
@@ -698,7 +698,7 @@ static void sec_report(struct secres *r, const char *title)
     tlog("");
 }
 
-// --- Router / switch exposure: which risky admin services answer on the gateway
+
 static void sec_router_scan(void)
 {
     struct secres *r = &g.sec_router;
@@ -730,7 +730,7 @@ static void sec_router_scan(void)
     evlog("Router check: %s (%d risky ports)", r->verdict, risky);
 }
 
-// --- Wi-Fi hygiene from the latest scan results (encryption, open/WEP, our network)
+
 static void sec_wifi_scan(void)
 {
     struct secres *r = &g.sec_wifi;
@@ -760,7 +760,7 @@ static void sec_wifi_scan(void)
     evlog("Wi-Fi check: %s (%d open, %d weak)", r->verdict, open, wep);
 }
 
-// --- DNS integrity: does the DHCP-provided resolver answer honestly?
+
 static void sec_dns_scan(void)
 {
     struct secres *r = &g.sec_dns;
@@ -792,12 +792,12 @@ static void sec_dns_scan(void)
     evlog("DNS check: %s", r->verdict);
 }
 
-// --- ARP inspection self-test.
-// We announce OUR OWN address with a gratuitous ARP and watch what happens. If the
-// network accepts an unsolicited ARP without challenge and shows no sign of Dynamic
-// ARP Inspection, it is susceptible to ARP spoofing. We never claim another device's
-// address and never redirect anyone's traffic, so this reports susceptibility without
-// performing an attack.
+
+
+
+
+
+
 void sec_arp_selftest(void)
 {
     struct secres *r = &g.sec_arp;
@@ -829,7 +829,7 @@ void sec_arp_selftest(void)
     evlog("ARP inspection test: %s", r->verdict);
 }
 
-// --- Rogue AP / evil-twin: another radio broadcasting our SSID, or an open copy
+
 static void sec_rogue_scan(void)
 {
     struct secres *r = &g.sec_rogue;
@@ -840,7 +840,7 @@ static void sec_rogue_scan(void)
     int same = 0, openclone = 0, worst = 0;
     for (int i = 0; i < g.ap_count; i++) {
         if (strcmp(g.aps[i].ssid, g.w_ssid)) continue;
-        if (!strcmp(g.aps[i].bssid, g.w_bssid)) continue;   // our own AP
+        if (!strcmp(g.aps[i].bssid, g.w_bssid)) continue;
         same++;
         if (!strcmp(g.aps[i].auth, "OPEN")) { openclone++; worst = 2; }
     }
@@ -856,28 +856,28 @@ static void sec_rogue_scan(void)
     evlog("Rogue AP: %s (%d sharing SSID)", r->verdict, same);
 }
 
-// --- SNMP default community: does our gear answer to public/private (read-only)
+
 static int snmp_get_sysdescr(uint32_t ip, const char *community, bool eth)
 {
     uint8_t clen = strlen(community);
-    // SNMPv2c GET sysDescr.0 (1.3.6.1.2.1.1.1.0)
+
     uint8_t pkt[64]; int n = 0;
     uint8_t oid[] = { 0x2b, 6, 1, 2, 1, 1, 1, 0 };
-    int varbind = 2 + sizeof(oid) + 2;          // OID TLV + NULL TLV
+    int varbind = 2 + sizeof(oid) + 2;
     int vblist = 2 + varbind;
-    int pdu = 2 + 1 + 2 + 1 + 2 + 1 + 2 + vblist; // req-id,err,erridx ints + vbl
-    int msg = 2 + 1 + 2 + clen + 2 + pdu;         // version int + community + pdu
+    int pdu = 2 + 1 + 2 + 1 + 2 + 1 + 2 + vblist;
+    int msg = 2 + 1 + 2 + clen + 2 + pdu;
     pkt[n++] = 0x30; pkt[n++] = msg;
-    pkt[n++] = 0x02; pkt[n++] = 0x01; pkt[n++] = 0x01;                 // version = 1 (v2c)
+    pkt[n++] = 0x02; pkt[n++] = 0x01; pkt[n++] = 0x01;
     pkt[n++] = 0x04; pkt[n++] = clen; memcpy(pkt + n, community, clen); n += clen;
-    pkt[n++] = 0xA0; pkt[n++] = pdu;                                   // GET PDU
-    pkt[n++] = 0x02; pkt[n++] = 0x01; pkt[n++] = 0x27;                 // request-id
-    pkt[n++] = 0x02; pkt[n++] = 0x01; pkt[n++] = 0x00;                 // error
-    pkt[n++] = 0x02; pkt[n++] = 0x01; pkt[n++] = 0x00;                 // error-index
+    pkt[n++] = 0xA0; pkt[n++] = pdu;
+    pkt[n++] = 0x02; pkt[n++] = 0x01; pkt[n++] = 0x27;
+    pkt[n++] = 0x02; pkt[n++] = 0x01; pkt[n++] = 0x00;
+    pkt[n++] = 0x02; pkt[n++] = 0x01; pkt[n++] = 0x00;
     pkt[n++] = 0x30; pkt[n++] = vblist;
     pkt[n++] = 0x30; pkt[n++] = varbind;
     pkt[n++] = 0x06; pkt[n++] = sizeof(oid); memcpy(pkt + n, oid, sizeof(oid)); n += sizeof(oid);
-    pkt[n++] = 0x05; pkt[n++] = 0x00;                                  // NULL value
+    pkt[n++] = 0x05; pkt[n++] = 0x00;
     int s = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
     if (s < 0) return -1;
     if (eth) bind_eth(s);
@@ -915,7 +915,7 @@ static void sec_snmp_scan(void)
     evlog("SNMP check: %s", r->verdict);
 }
 
-// --- UPnP / SSDP: devices that announce themselves (and may open ports outward)
+
 static void sec_upnp_scan(void)
 {
     struct secres *r = &g.sec_upnp;
@@ -953,7 +953,7 @@ static void sec_upnp_scan(void)
     evlog("UPnP check: %s (%d devices)", r->verdict, nips);
 }
 
-// --- TLS / certificate check on an HTTPS service (switch mgmt or gateway by default)
+
 static void sec_tls_check(const char *arg)
 {
     struct secres *r = &g.sec_tls;
@@ -966,7 +966,7 @@ static void sec_tls_check(const char *arg)
     if (!host[0]) { sec_line(r, "No host"); sec_end(r, 1, "NO HOST"); return; }
     sec_line(r, "%s:%d", host, port);
     r->done = 20;
-    // trusted handshake first
+
     esp_tls_cfg_t cfg = { .crt_bundle_attach = esp_crt_bundle_attach, .timeout_ms = 6000 };
     esp_tls_t *t = esp_tls_init();
     int worst = 0;
@@ -974,7 +974,7 @@ static void sec_tls_check(const char *arg)
     r->done = 55;
     if (!trusted) {
         if (t) { esp_tls_conn_destroy(t); }
-        // retry without verification to read the version/cert even if untrusted
+
         esp_tls_cfg_t ncfg = { .skip_common_name = true, .timeout_ms = 6000 };
         t = esp_tls_init();
         bool any = t && esp_tls_conn_new_sync(host, strlen(host), port, &ncfg, t) == 1;
@@ -983,7 +983,7 @@ static void sec_tls_check(const char *arg)
         sec_line(r, "Cert NOT trusted (self-signed/old)");
         worst = 2;
     } else sec_line(r, "Cert trusted by CA bundle");
-    // TLS version + cert expiry via mbedTLS
+
     mbedtls_ssl_context *ssl = esp_tls_get_ssl_context(t);
     if (ssl) {
         const char *ver = mbedtls_ssl_get_version(ssl);
@@ -1002,7 +1002,7 @@ static void sec_tls_check(const char *arg)
     evlog("TLS check %s: %s", host, r->verdict);
 }
 
-// --- DHCP watch: how many DHCP servers are handing out leases on this wire
+
 static void sec_dhcp_scan(void)
 {
     struct secres *r = &g.sec_dhcp;
@@ -1019,12 +1019,12 @@ static void sec_dhcp_scan(void)
     evlog("DHCP watch: %s (%d servers)", r->verdict, g.dhcp_seen_n);
 }
 
-// --- Segment / guest isolation: can we reach something we should NOT from this port
+
 static void sec_seg_check(const char *arg)
 {
     struct secres *r = &g.sec_seg;
     sec_begin(r);
-    // default probe target: the switch management IP (often on a separate mgmt VLAN)
+
     char tgt[32];
     snprintf(tgt, sizeof(tgt), "%s", (arg && arg[0]) ? arg : g.sw_mgmt);
     if (!tgt[0]) { sec_line(r, "No mgmt IP known"); sec_line(r, "Enter a target IP in the GUI"); sec_end(r, 1, "NO TARGET"); return; }
@@ -1044,7 +1044,7 @@ static void sec_seg_check(const char *arg)
     evlog("Segment test %s: %s", tgt, r->verdict);
 }
 
-// --- Bufferbloat: added latency to the gateway while the link is saturated
+
 static volatile bool s_load_run;
 static void load_task(void *a)
 {
@@ -1074,7 +1074,7 @@ static void sec_buffer_test(void)
     r->done = 15;
     pingres_t base = ping_run(gw.s_addr, 8, eth, NULL);
     int idle = base.recv ? base.sum / base.recv : 0;
-    // saturate the link and ping under load
+
     s_load_run = true;
     xTaskCreate(load_task, "bbload", 6144, NULL, 3, NULL);
     vTaskDelay(pdMS_TO_TICKS(800));
@@ -1115,9 +1115,9 @@ static void tool_scan(const char *host)
     tlog("%d open", open);
 }
 
-// ---------------------------------------------------------------------
-// Wake-on-LAN magic packet
-// ---------------------------------------------------------------------
+
+
+
 static void tool_wol(const char *mac)
 {
     unsigned m[6];

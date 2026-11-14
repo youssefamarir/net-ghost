@@ -1,4 +1,4 @@
-// NetAlly Buster - JSON for the web GUI, Bluetooth and MQTT
+
 #include <stdio.h>
 #include <string.h>
 #include <stdarg.h>
@@ -43,7 +43,7 @@ static void jw_b(jw_t *w, const char *k, bool v) { jw_key(w, k); jw_raw(w, v ? "
 
 static jw_t jw_new(char *b, size_t cap) { jw_t w = { b, cap, 0, true }; b[0] = 0; return w; }
 
-// ---------------------------------------------------------------------
+
 static void w_link(jw_t *w)
 {
     jw_b(w, "link", g.eth_link); jw_b(w, "ip_ok", g.eth_ip);
@@ -188,7 +188,7 @@ static void w_gui(jw_t *w)
     jw_s(w, "ble_url", cfg.ble_url); jw_s(w, "ble_name", g.ble_name);
 }
 
-// ---------------------------------------------------------------------
+
 #define SECTION(name, body) int name { jw_t w = jw_new(b, n); jw_open(&w, NULL); body; jw_close(&w); return w.n; }
 SECTION(json_link(char *b, size_t n), w_link(&w))
 SECTION(json_switch(char *b, size_t n), w_switch(&w))
@@ -245,7 +245,7 @@ int build_status_json(char *b, size_t n)
     return w.n;
 }
 
-// same keys the SENTRY hub already ingests, plus a few new ones
+
 int json_mqtt(char *b, size_t n)
 {
     char sw[48], port[40], ws[33];

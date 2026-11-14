@@ -1,4 +1,4 @@
-// NetAlly Buster - settings, saved in NVS and editable from the screen, web GUI and Bluetooth
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -124,7 +124,7 @@ int cfg_set(const char *key, const char *val)
         case K_U16:  if (n < 0) n = 0; if (n > 65535) n = 65535; *(uint16_t *)k->ptr = n; break;
         case K_BOOL: *(bool *)k->ptr = b; break;
         case K_STR:
-            if (!strcmp(key, "ap_pass") && strlen(val) < 8) return 0;   // WPA2 needs 8+
+            if (!strcmp(key, "ap_pass") && strlen(val) < 8) return 0;
             snprintf((char *)k->ptr, k->size, "%s", val);
             break;
         }
@@ -133,7 +133,7 @@ int cfg_set(const char *key, const char *val)
         if (cfg.speed_mb > 20) cfg.speed_mb = 20;
         if (cfg.bright < 5) cfg.bright = 5;
         if (cfg.bright > 100) cfg.bright = 100;
-        return k->flags | 0x100;   // 0x100 = something changed
+        return k->flags | 0x100;
     }
     return 0;
 }

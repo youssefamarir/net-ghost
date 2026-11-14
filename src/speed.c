@@ -1,5 +1,5 @@
-// Bounded HTTPS throughput samples. The data socket MUST bind to the selected
-// interface: a Wi-Fi test must never silently use the Ethernet default route.
+
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -22,7 +22,7 @@ static bool cancelled(void) { return __atomic_load_n(&s_cancel, __ATOMIC_RELAXED
 static bool connected(bool wifi) { return wifi ? g.wifi_conn : g.eth_ip && g.eth_link; }
 static void stage(speed_result_t *r, const char *s) { snprintf(r->stage, sizeof(r->stage), "%s", s); }
 
-// 1 ms pause every 250 ms so the screen and lower-priority tasks keep running on a fast link
+
 static int64_t s_breath;
 static void breathe(void)
 {
@@ -49,13 +49,13 @@ void speed_test_run(bool wifi)
         snprintf(r->error, sizeof(r->error), "Connect %s first; no fallback used", wifi ? "Wi-Fi" : "Ethernet");
         goto done;
     }
-    // Avoid scans changing the radio channel while collecting the sample.
+
     if (g.scanning) {
         snprintf(r->error, sizeof(r->error), "Wait for the Wi-Fi scan to finish");
         goto done;
     }
-    // Wi-Fi shares the 2.4 GHz radio with Bluetooth: give Wi-Fi the airtime
-    // while sampling, then go back to balanced afterwards.
+
+
     if (wifi) { esp_coex_preference_set(ESP_COEX_PREFER_WIFI); }
     buf = malloc(16384);
     if (!buf) { snprintf(r->error, sizeof(r->error), "Not enough memory for test buffer"); goto done; }
@@ -98,11 +98,11 @@ void speed_test_run(bool wifi)
     if (!r->down_ok) {
         snprintf(r->error, sizeof(r->error), "Download interrupted or incomplete"); goto done;
     }
-    if (!wifi) g.speed_mbps = r->down_mbps; // retain the original API field
+    if (!wifi) g.speed_mbps = r->down_mbps;
     if (cancelled() || !connected(wifi)) goto done;
     stage(r, "Upload");
     r->progress = 65;
-    // A fixed 3 MB upload bounds data usage even on an unexpectedly fast link.
+
     const unsigned upload_limit = 3000000;
     c.url = "https://speed.cloudflare.com/__up";
     c.method = HTTP_METHOD_POST;
@@ -122,7 +122,7 @@ void speed_test_run(bool wifi)
         r->progress = 65 + (uint8_t)(r->up_bytes * 34ULL / upload_limit);
         breathe();
     }
-    // Count upload as valid only after the server acknowledges the full body.
+
     if (!cancelled() && connected(wifi) && r->up_bytes == upload_limit && esp_http_client_fetch_headers(h) >= 0) {
         int status = esp_http_client_get_status_code(h);
         elapsed = esp_timer_get_time() - t0;

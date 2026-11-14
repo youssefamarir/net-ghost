@@ -1,15 +1,15 @@
-// Net Ghost - switch port VLAN configurator over SSH.
-//
-// This is authenticated switch administration: the technician supplies the switch IP and
-// their own login in the GUI, Net Ghost opens an SSH shell, reads the VLAN list, and (only
-// after the technician confirms the exact commands) moves the connected port to the chosen
-// untagged/access VLAN. It never stores the password and never acts without a confirm.
-//
-// First target: Ruckus ICX (FastIron CLI). The command set is a small per-vendor template;
-// other vendors slot in the same way.
-//
-// NOTE: validated on real hardware is still required. Prompts and output vary by firmware,
-// so every raw line the switch returns is captured into swcfg.result for the tech to verify.
+
+
+
+
+
+
+
+
+
+
+
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -31,7 +31,7 @@ static char *ci_str(const char *h, const char *n)
 }
 swcfg_t swcfg;
 
-// one operation at a time
+
 static char s_host[40], s_user[24], s_pass[64], s_port[40];
 static int  s_vlan;
 
@@ -54,9 +54,9 @@ static void append_result(const char *s, int n)
     swcfg.result[have] = 0;
 }
 
-// ---------------------------------------------------------------------
-// SSH shell helpers
-// ---------------------------------------------------------------------
+
+
+
 static int tcp_connect(const char *host, int port)
 {
     struct addrinfo hints = { .ai_family = AF_INET, .ai_socktype = SOCK_STREAM }, *res = NULL;
@@ -73,7 +73,7 @@ static int tcp_connect(const char *host, int port)
     return s;
 }
 
-// read from the shell for up to ms, copying into result; stop early once output goes idle
+
 static void read_until_idle(LIBSSH2_CHANNEL *ch, int ms, char *capture, int cap)
 {
     char buf[512];
@@ -87,9 +87,9 @@ static void read_until_idle(LIBSSH2_CHANNEL *ch, int ms, char *capture, int cap)
             if (capture) for (int i = 0; i < n && caplen < cap - 1; i++) capture[caplen++] = buf[i];
             idle = 0;
         } else if (n == LIBSSH2_ERROR_EAGAIN || n == 0) {
-            if (++idle > 4) break;                 // ~400 ms of quiet = prompt is waiting
+            if (++idle > 4) break;
             vTaskDelay(pdMS_TO_TICKS(100));
-        } else break;                              // channel closed / error
+        } else break;
     }
     if (capture) capture[caplen] = 0;
 }
@@ -102,15 +102,15 @@ static void send_cmd(LIBSSH2_CHANNEL *ch, const char *cmd, int wait_ms, char *ca
     read_until_idle(ch, wait_ms, capture, cap);
 }
 
-// Pull VLAN IDs out of "show vlan brief" style output: lines that start with a VLAN number.
+
 static void parse_vlans(const char *out)
 {
     swcfg.vlan_n = 0;
     const char *p = out;
     while (*p && swcfg.vlan_n < SW_MAX_VLANS) {
-        // move to start of a line
+
         while (*p == ' ' || *p == '\t') p++;
-        // FastIron: "VLAN <id>" or a leading integer column
+
         int id = -1; const char *q = p;
         if (!strncasecmp(p, "VLAN", 4)) { q = p + 4; while (*q == ' ') q++; }
         if (*q >= '0' && *q <= '9') {
@@ -130,7 +130,7 @@ static void parse_vlans(const char *out)
     }
 }
 
-// open an SSH shell and log in; returns session+channel or NULL. caller must clean up.
+
 static LIBSSH2_SESSION *ssh_login(int *sock_out, LIBSSH2_CHANNEL **ch_out)
 {
     *ch_out = NULL;
@@ -148,13 +148,13 @@ static LIBSSH2_SESSION *ssh_login(int *sock_out, LIBSSH2_CHANNEL **ch_out)
     if (!ch) { st("Channel open failed"); return sess; }
     libssh2_channel_request_pty(ch, "vt100");
     if (libssh2_channel_shell(ch)) { st("Shell request failed"); return sess; }
-    read_until_idle(ch, 2500, NULL, 0);          // banner / first prompt
-    // best-effort enable + no paging (Ruckus FastIron)
+    read_until_idle(ch, 2500, NULL, 0);
+
     char tmp[256];
     send_cmd(ch, "enable", 1500, tmp, sizeof(tmp));
-    if (ci_str(tmp, "password")) send_cmd(ch, s_pass, 1500, NULL, 0);   // enable password = login pass, if asked
+    if (ci_str(tmp, "password")) send_cmd(ch, s_pass, 1500, NULL, 0);
     send_cmd(ch, "skip-page-display", 1200, NULL, 0);
-    send_cmd(ch, "terminal length 0", 1200, NULL, 0);                       // harmless if unsupported
+    send_cmd(ch, "terminal length 0", 1200, NULL, 0);
     *ch_out = ch;
     return sess;
 }
@@ -167,9 +167,9 @@ static void ssh_cleanup(int sock, LIBSSH2_SESSION *sess, LIBSSH2_CHANNEL *ch)
     libssh2_exit();
 }
 
-// ---------------------------------------------------------------------
-// tasks
-// ---------------------------------------------------------------------
+
+
+
 static void connect_task(void *a)
 {
     (void)a;
@@ -215,7 +215,7 @@ static void apply_task(void *a)
         send_cmd(ch, cmd, 2000, NULL, 0);
         send_cmd(ch, "end", 1200, NULL, 0);
         send_cmd(ch, "write memory", 3000, NULL, 0);
-        // success heuristic: no "Error"/"Invalid" in the captured output
+
         swcfg.ok = !ci_str(swcfg.result, "error") && !ci_str(swcfg.result, "invalid") &&
                    !ci_str(swcfg.result, "incomplete");
         st(swcfg.ok ? "Applied - port %s now VLAN %d" : "Switch reported a problem - check output", s_port, s_vlan);
@@ -225,9 +225,9 @@ static void apply_task(void *a)
     vTaskDelete(NULL);
 }
 
-// ---------------------------------------------------------------------
-// public API
-// ---------------------------------------------------------------------
+
+
+
 static void build_preview(const char *port, int vlan)
 {
     snprintf(swcfg.preview, sizeof(swcfg.preview),

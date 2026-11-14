@@ -1,5 +1,5 @@
-// NetAlly Buster - on-screen GUI (LVGL 8, 240x240 round GC9A01)
-// Every page keeps its content inside the circle. Swipe left/right to change page.
+
+
 #include <stdio.h>
 #include <string.h>
 #include <stdarg.h>
@@ -10,7 +10,7 @@
 #include "buster.h"
 #include "ui.h"
 
-// ---------- palette ----------
+
 #define C_BG      0x05080C
 #define C_RING    0x0F1720
 #define C_DIM     0x8498B0
@@ -28,18 +28,18 @@
 #define SCR 240
 #define R   120
 
-// Pages are laid out in columns: swipe left/right on a column's top page to change
-// column, swipe up/down to go through that column. From any lower page a left/right
-// swipe jumps to the top of the next column.
+
+
+
 enum {
-    P_HOME, P_DEV, P_POWER, P_ALERT,                                         // DEVICE
-    P_SWITCH, P_SWDET, P_POE, P_CABLE, P_PORT, P_PKT, P_IP, P_WIRE,          // SWITCH
-    P_WIFI, P_WSIG, P_WINFO, P_WIP, P_SCAN,                                  // WI-FI
-    P_TEST, P_WSPEED, P_ESPEED, P_QUAL, P_PING, P_HOSTS, P_BUFFER,           // TOOLS
-    P_SECROUTER, P_SECWIFI, P_SECROGUE, P_SECDNS, P_SECSNMP,                 // SECURITY
-    P_SECUPNP, P_SECTLS, P_SECDHCP, P_SECSEG, P_SECARP,                      // SECURITY
-    P_SET, P_DISPLAY, P_BTSET,                                               // SETTINGS
-    P_CONN, P_BTCONN,                                                        // CONNECT
+    P_HOME, P_DEV, P_POWER, P_ALERT,
+    P_SWITCH, P_SWDET, P_POE, P_CABLE, P_PORT, P_PKT, P_IP, P_WIRE,
+    P_WIFI, P_WSIG, P_WINFO, P_WIP, P_SCAN,
+    P_TEST, P_WSPEED, P_ESPEED, P_QUAL, P_PING, P_HOSTS, P_BUFFER,
+    P_SECROUTER, P_SECWIFI, P_SECROGUE, P_SECDNS, P_SECSNMP,
+    P_SECUPNP, P_SECTLS, P_SECDHCP, P_SECSEG, P_SECARP,
+    P_SET, P_DISPLAY, P_BTSET,
+    P_CONN, P_BTCONN,
     P_COUNT };
 enum { COL_DEV, COL_SW, COL_WIFI, COL_TOOLS, COL_SEC, COL_SET, COL_CONN, COL_COUNT };
 static const uint8_t col_first[COL_COUNT + 1] = { P_HOME, P_SWITCH, P_WIFI, P_TEST, P_SECROUTER, P_SET, P_CONN, P_COUNT };
@@ -54,9 +54,9 @@ static lv_obj_t *rings[P_COUNT];
 static int cur_page = 0;
 static int s_display_cfg = -1;
 
-// =====================================================================
-// helpers
-// =====================================================================
+
+
+
 static lv_obj_t *mk_label(lv_obj_t *p, const lv_font_t *f, uint32_t col, const char *txt)
 {
     if (cfg.text_size) {
@@ -93,7 +93,7 @@ static void set_col(lv_obj_t *o, uint32_t c)
         lv_obj_set_style_text_color(o, n, 0);
 }
 
-// usable width of a horizontal band between y0..y1 on the round screen
+
 static int band_w(int y0, int y1, int pad)
 {
     int d0 = abs(y0 - R), d1 = abs(y1 - R);
@@ -103,7 +103,7 @@ static int band_w(int y0, int y1, int pad)
     return w < 40 ? 40 : w;
 }
 
-// "key ........ value" row sized to fit the circle at screen height yabs
+
 static lv_obj_t *kv_row_ex(lv_obj_t *p, int y, int yabs, const char *key, lv_obj_t **val)
 {
     int w = band_w(yabs, yabs + 17, 30);
@@ -180,7 +180,7 @@ static void fmt_count(char *b, size_t n, uint32_t v)
     else                    snprintf(b, n, "%.2fM", v / 1000000.0);
 }
 
-// GigabitEthernet1/0/12 -> Gi1/0/12
+
 static void abbr_port(char *out, size_t n, const char *in)
 {
     static const char *map[][2] = {
@@ -194,9 +194,9 @@ static void abbr_port(char *out, size_t n, const char *in)
     snprintf(out, n, "%s", in);
 }
 
-// =====================================================================
-// animations
-// =====================================================================
+
+
+
 static void a_ty(void *o, int32_t v)  { lv_obj_set_style_translate_y((lv_obj_t *)o, v, 0); }
 static void a_opa(void *o, int32_t v) { lv_obj_set_style_opa((lv_obj_t *)o, v, 0); }
 static void a_arcv(void *o, int32_t v){ lv_arc_set_value((lv_obj_t *)o, v); }
@@ -218,7 +218,7 @@ static void anim(void *obj, lv_anim_exec_xcb_t cb, int32_t a, int32_t b, uint32_
     lv_anim_start(&an);
 }
 
-// smooth arc value change
+
 static void arc_to(lv_obj_t *arc, int v)
 {
     int cur = lv_arc_get_value(arc);
@@ -227,7 +227,7 @@ static void arc_to(lv_obj_t *arc, int v)
     anim(arc, a_arcv, cur, v, 500, 0, lv_anim_path_ease_out);
 }
 
-// content of a page drops in, staggered, when it becomes active
+
 static void page_enter(int idx)
 {
     lv_obj_t *t = tiles[idx];
@@ -251,16 +251,16 @@ static void page_enter(int idx)
     }
 }
 
-// =====================================================================
-// page frame + page dots
-// =====================================================================
+
+
+
 
 static lv_obj_t *page_new(int idx, const char *title, uint32_t accent)
 {
     lv_obj_t *t = tiles[idx];
     lv_obj_set_style_bg_color(t, lv_color_hex(0x10233B), 0);
     lv_obj_set_style_bg_grad_color(t, lv_color_hex(C_BG), 0);
-    lv_obj_set_style_bg_grad_dir(t, LV_GRAD_DIR_VER, 0);            // tiles exist from ui_init; content is built on demand
+    lv_obj_set_style_bg_grad_dir(t, LV_GRAD_DIR_VER, 0);
 
     lv_obj_t *ring = lv_arc_create(t);
     lv_obj_set_size(ring, 234, 234);
@@ -281,7 +281,7 @@ static lv_obj_t *page_new(int idx, const char *title, uint32_t accent)
 
     if (title) {
         lv_obj_t *l = center_label(t, &lv_font_montserrat_14, accent, 20, title);
-        // Keep page headings static and inside the narrow top of the glass.
+
         lv_obj_set_style_text_font(l, &lv_font_montserrat_14, 0);
         lv_obj_set_style_text_letter_space(l, 1, 0);
         lv_obj_set_width(l, band_w(20, 36, 8));
@@ -290,7 +290,7 @@ static lv_obj_t *page_new(int idx, const char *title, uint32_t accent)
     return t;
 }
 
-// column dots on an arc along the bottom edge, page-in-column dots along the right edge
+
 static lv_obj_t *cdots[COL_COUNT], *rdots[MAX_ROWS];
 static int dot_cx[COL_COUNT + MAX_ROWS], dot_cy[COL_COUNT + MAX_ROWS];
 static void a_dot(void *o, int32_t v)
@@ -338,7 +338,7 @@ static void dots_set(int page)
     for (int i = 0; i < COL_COUNT; i++) dot_to(cdots[i], i == c, C_CYAN);
     for (int i = 0; i < MAX_ROWS; i++) {
         if (i >= n || n < 2) { lv_obj_add_flag(rdots[i], LV_OBJ_FLAG_HIDDEN); continue; }
-        // re-place the column's row dots so they stay centred on the right edge
+
         int k = COL_COUNT + i;
         float a = ((i - (n - 1) / 2.0f) * 7.0f) * 3.14159265f / 180.0f;
         dot_cx[k] = 120 + (int)lroundf(110.0f * cosf(a));
@@ -349,9 +349,9 @@ static void dots_set(int page)
     }
 }
 
-// =====================================================================
-// toast (slides down from the top)
-// =====================================================================
+
+
+
 static lv_obj_t *toast, *toast_lbl;
 static void toast_create(void)
 {
@@ -373,7 +373,7 @@ static void toast_show(const char *txt, uint32_t col)
 {
     char b[48];
     snprintf(b, sizeof(b), "%s", txt);
-    if (strlen(b) > 30) strcpy(b + 28, "..");     // keep the pill inside the circle
+    if (strlen(b) > 30) strcpy(b + 28, "..");
     lv_label_set_text(toast_lbl, b);
     lv_obj_set_style_text_color(toast_lbl, lv_color_hex(col), 0);
     lv_obj_set_style_border_color(toast, lv_color_hex(col), 0);
@@ -389,9 +389,9 @@ static void toast_show(const char *txt, uint32_t col)
     lv_anim_start(&an);
 }
 
-// =====================================================================
-// boot splash
-// =====================================================================
+
+
+
 static lv_obj_t *splash;
 static void splash_del_cb(lv_anim_t *a) { (void)a; lv_obj_del(splash); splash = NULL; }
 static void splash_create(void)
@@ -446,9 +446,9 @@ static void splash_create(void)
     lv_anim_start(&an);
 }
 
-// =====================================================================
-// PAGE: HOME
-// =====================================================================
+
+
+
 static struct {
     lv_obj_t *eth, *wifi, *bt, *alert, *batt, *clock, *ampm, *wx_icon, *wx_lbl, *env, *link;
     char wx_last[16];
@@ -558,7 +558,7 @@ static void home_update(void)
         set_fmt(H.wx_lbl, "%d\xC2\xB0""F  %s", g.wx_temp, g.wx_cond);
         if (strcmp(H.wx_last, g.wx_cond)) { snprintf(H.wx_last, sizeof(H.wx_last), "%s", g.wx_cond); draw_wx_icon(g.wx_cond); }
     }
-    // line 1: IP / link state
+
     if (g.eth_ip) { set_fmt(H.env, "%s  %dM %s", g.ip, g.eth_speed, g.eth_full ? "FD" : "HD"); set_col(H.env, C_GREEN); }
     else if (g.eth_link) { set_txt(H.env, "Link up, waiting for DHCP"); set_col(H.env, C_AMBER); }
     else { set_txt(H.env, "Plug in Ethernet"); set_col(H.env, C_DIM); }
@@ -576,9 +576,9 @@ static void home_update(void)
     }
 }
 
-// =====================================================================
-// PAGE: AUTOTEST
-// =====================================================================
+
+
+
 static const char *test_names[TS_COUNT] = { "LINK", "DHCP", "GATEWAY", "DNS", "INTERNET", "SWITCH" };
 static struct {
     lv_obj_t *icon[TS_COUNT], *spin[TS_COUNT], *val[TS_COUNT];
@@ -648,7 +648,7 @@ static void test_update(void)
         set_txt(T.icon[i], sym);
         set_col(T.icon[i], col);
         if (s->st != T.last[i] && (s->st == T_PASS || s->st == T_WARN || s->st == T_FAIL)) {
-            anim(T.icon[i], a_zoom, 40, 256, 450, 0, lv_anim_path_overshoot);   // pop in
+            anim(T.icon[i], a_zoom, 40, 256, 450, 0, lv_anim_path_overshoot);
         }
         T.last[i] = s->st;
         set_txt(T.val[i], s->val);
@@ -664,9 +664,9 @@ static void test_update(void)
         arc_to(rings[P_TEST], g.test_runs || g.test_running ? done * 360 / TS_COUNT : 360);
 }
 
-// =====================================================================
-// PAGE: SWITCH (LLDP / CDP / FDP)
-// =====================================================================
+
+
+
 static struct {
     lv_obj_t *listen, *pulse[3], *wait_lbl, *wait_sub;
     lv_obj_t *found, *proto, *name, *port, *vlan, *voice, *mode, *mgmt;
@@ -693,7 +693,7 @@ static void switch_create(void)
     memset(&S, 0, sizeof(S));
     lv_obj_t *t = page_new(P_SWITCH, "SWITCH", C_ORANGE);
 
-    // --- listening view ---
+
     S.listen = lv_obj_create(t);
     lv_obj_remove_style_all(S.listen);
     lv_obj_set_size(S.listen, 170, 170);
@@ -725,7 +725,7 @@ static void switch_create(void)
     lv_obj_set_style_text_align(S.wait_sub, LV_TEXT_ALIGN_CENTER, 0);
     lv_obj_align(S.wait_sub, LV_ALIGN_CENTER, 0, 34);
 
-    // --- found view ---
+
     S.found = lv_obj_create(t);
     lv_obj_remove_style_all(S.found);
     lv_obj_set_size(S.found, SCR, 180);
@@ -793,9 +793,9 @@ static void switch_update(void)
     set_txt(S.mgmt, g.sw_mgmt[0] ? g.sw_mgmt : "--");
 }
 
-// =====================================================================
-// PAGE: SWITCH DETAILS
-// =====================================================================
+
+
+
 static struct { lv_obj_t *model, *ver, *caps, *duplex, *poe, *desc, *stp, *age, *none; } D;
 
 static void swdet_create(void)
@@ -829,9 +829,9 @@ static void swdet_update(void)
     } else set_txt(D.age, "--");
 }
 
-// =====================================================================
-// PAGE: PORT STATS
-// =====================================================================
+
+
+
 static struct {
     lv_obj_t *speed, *duplex, *chart, *traffic, *bcast, *up;
     lv_chart_series_t *ser;
@@ -899,9 +899,9 @@ static void port_update(void)
     set_txt(PS.blink_lbl, g.blinking ? "BLINKING..." : "BLINK PORT");
 }
 
-// =====================================================================
-// PAGE: IP CONFIG (the old SENTRY "device stats" page)
-// =====================================================================
+
+
+
 static struct { lv_obj_t *link, *ip, *mask, *gw, *dns, *mac, *srv, *lease; } N;
 
 static void ip_renew_cb(lv_event_t *e) { (void)e; eth_dhcp_renew(); toast_show(LV_SYMBOL_REFRESH "  Renewing DHCP", C_BLUE); }
@@ -937,9 +937,9 @@ static void ip_update(void)
     else set_txt(N.lease, "---");
 }
 
-// =====================================================================
-// PAGE: WI-FI
-// =====================================================================
+
+
+
 static struct { lv_obj_t *arc, *dbm, *qual, *ssid, *ip, *chan, *bssid, *off; } W;
 
 static void wifi_create(void)
@@ -993,9 +993,9 @@ static void wifi_update(void)
     }
 }
 
-// =====================================================================
-// PAGE: WI-FI SCAN
-// =====================================================================
+
+
+
 #define SCAN_ROWS 5
 static struct {
     lv_obj_t *hdr, *sym[SCAN_ROWS], *ssid[SCAN_ROWS], *meta[SCAN_ROWS];
@@ -1049,7 +1049,7 @@ static void scan_create(void)
 
 static void scan_update(void)
 {
-    // ring spins while a scan is running
+
     if (g.scanning && cfg.animations && !SC.sweeping) {
         SC.sweeping = true;
         lv_anim_del(rings[P_SCAN], a_arcv);
@@ -1096,9 +1096,9 @@ static void scan_update(void)
     lv_chart_refresh(SC.chart);
 }
 
-// =====================================================================
-// PAGE: DEVICE
-// =====================================================================
+
+
+
 static struct { lv_obj_t *up, *temp, *heap, *batt, *rst, *ble, *ap, *mqtt; } DV;
 
 static void dev_create(void)
@@ -1135,12 +1135,12 @@ static void dev_update(void)
     set_col(DV.mqtt, g.mqtt_conn ? C_GREEN : C_DIM);
 }
 
-// =====================================================================
-// PAGE: POWER (USB-C input + battery)
-// The Waveshare board has no power meter on the USB-C input, so watts there are
-// not measured. If an INA226 is ever wired to the touch I2C bus, g.pwr_* would
-// fill these in; until then the page reports battery and source honestly.
-// =====================================================================
+
+
+
+
+
+
 static struct { lv_obj_t *src, *batt, *volt, *chg, *usb, *poe, *note; } PW;
 static void power_create(void)
 {
@@ -1170,16 +1170,16 @@ static void power_update(void)
     set_txt(PW.chg, !cfg.battery ? "--" : g.batt_charging ? "yes" : "no");
     set_col(PW.chg, g.batt_charging ? C_GREEN : C_TEXT);
     set_txt(PW.usb, "not metered");
-    // PoE is whatever the switch advertises (never measured here)
+
     if (poe_is_fresh() && g.poe.allocated_mw > 0) set_fmt(PW.poe, "%.1f W adv", g.poe.allocated_mw / 1000.0f);
     else if (g.eth_link) set_txt(PW.poe, "no PoE info");
     else set_txt(PW.poe, "--");
     set_txt(PW.note, batt ? "USB-C watts: no meter on board" : "Running on USB-C or PoE (not metered)");
 }
 
-// =====================================================================
-// PAGE: CONNECT (QR to join the hotspot -> GUI opens by itself)
-// =====================================================================
+
+
+
 static struct { lv_obj_t *qr, *ssid, *pass, *bt, *hint; char last[96]; } CN;
 
 static void conn_create(void)
@@ -1191,7 +1191,7 @@ static void conn_create(void)
     CN.hint = center_label(t, &lv_font_montserrat_12, C_DIM, 40, "SCAN FOR GUI");
     lv_obj_set_style_text_letter_space(CN.hint, 1, 0);
 
-    // white quiet-zone frame so phones read it easily
+
     lv_obj_t *frame = lv_obj_create(t);
     lv_obj_remove_style_all(frame);
     lv_obj_set_size(frame, 116, 116);
@@ -1223,9 +1223,9 @@ static void conn_update(void)
     set_col(CN.hint, (g.ap_clients || g.ble_conn) ? C_VIOLET : C_DIM);
 }
 
-// =====================================================================
-// PAGE: CABLE & LINK
-// =====================================================================
+
+
+
 static struct { lv_obj_t *status, *sub, *speed, *sw, *can, *drops, *loss, *lat, *btn_lbl; } CB;
 
 static void quality_cb(lv_event_t *e) { (void)e; quality_start(); }
@@ -1285,9 +1285,9 @@ static void cable_update(void)
     set_txt(CB.btn_lbl, g.q_running ? "TESTING..." : "TEST LINK");
 }
 
-// =====================================================================
-// PAGE: PACKETS
-// =====================================================================
+
+
+
 #define PKT_ROWS 5
 static struct { lv_obj_t *hdr, *bar[PKT_ROWS], *pct[PKT_ROWS], *apps1, *apps2, *top; } PK;
 static const char *pkt_names[PKT_ROWS] = { "IPv4", "IPv6", "ARP", "L2 CTRL", "OTHER" };
@@ -1348,9 +1348,9 @@ static void pkt_update(void)
     set_txt(PK.top, tt);
 }
 
-// =====================================================================
-// PAGE: ALERTS
-// =====================================================================
+
+
+
 #define AL_ROWS 6
 static struct { lv_obj_t *clear, *clear_sub, *icon[AL_ROWS], *txt[AL_ROWS]; } AL;
 
@@ -1400,9 +1400,9 @@ static void alert_update(void)
     lv_obj_set_style_arc_color(rings[P_ALERT], lv_color_hex(none ? C_GREEN : worst == 2 ? C_RED : worst == 1 ? C_AMBER : C_BLUE), LV_PART_INDICATOR);
 }
 
-// =====================================================================
-// PAGE: SETTINGS (tap a value to change it; everything else is in the phone GUI)
-// =====================================================================
+
+
+
 enum { S_BRIGHT, S_SLEEP, S_UNITS, S_AUTO, S_BATT, S_HOT, S_ROWS };
 static const char *set_names[S_ROWS] = { "BRIGHT", "SLEEP", "UNITS", "AUTOTEST", "BATTERY", "HOTSPOT" };
 static lv_obj_t *set_val[S_ROWS];
@@ -1527,11 +1527,11 @@ static void wip_update(void)
     set_fmt(WP.aps, "%d networks", g.ap_count);
 }
 
-// =====================================================================
-// PAGES: SPEED TESTS (Tools column) - one page for Wi-Fi, one for Ethernet
-// =====================================================================
+
+
+
 typedef struct { lv_obj_t *stage, *down, *up, *first, *bar, *button, *btn, *net; } speed_page_t;
-static speed_page_t SPD[2];          // 0 Wi-Fi, 1 Ethernet
+static speed_page_t SPD[2];
 
 static void speed_cb(lv_event_t *e)
 {
@@ -1679,9 +1679,9 @@ static void display_update(void)
     set_fmt(display_values[3], "%d MB", cfg.speed_mb);
 }
 
-// =====================================================================
-// PAGE: WI-FI SIGNAL HISTORY
-// =====================================================================
+
+
+
 static struct { lv_obj_t *now, *chart, *stats, *verdict, *hint; lv_chart_series_t *ser; } WG;
 
 static void wsig_create(void)
@@ -1731,9 +1731,9 @@ static void wsig_update(void)
     else set_txt(WG.stats, "no samples yet");
 }
 
-// =====================================================================
-// PAGE: LINK QUALITY (Tools) - 100 pings: loss, latency, jitter
-// =====================================================================
+
+
+
 static struct { lv_obj_t *arc, *big, *unit, *target, *lat, *jit, *cnt, *btn, *btn_lbl; } LQ;
 
 static void lq_cb(lv_event_t *e) { (void)e; if (!g.q_running) quality_start(); }
@@ -1788,10 +1788,10 @@ static void qual_update(void)
     set_txt(LQ.btn_lbl, g.q_running ? "TESTING..." : can ? "RUN TEST" : "NO NETWORK");
 }
 
-// =====================================================================
-// PAGE: QUICK ACTIONS (Tools)
-// =====================================================================
-// last non-empty line of the shared tool log (for the live tool pages)
+
+
+
+
 static const char *tool_tail(void)
 {
     static char log[2048];
@@ -1802,9 +1802,9 @@ static const char *tool_tail(void)
     return ln ? ln + 1 : log;
 }
 
-// =====================================================================
-// TOOLS: PING (gateway by default)
-// =====================================================================
+
+
+
 static struct { lv_obj_t *target, *big, *unit, *line, *btn, *btn_lbl; } PG;
 static void ping_cb(lv_event_t *e)
 {
@@ -1829,7 +1829,7 @@ static void ping_update(void)
     bool mine = !strcmp(tool_current(), "ping");
     const char *ln = tool_tail();
     if (mine) { set_txt(PG.big, "..."); set_txt(PG.line, "pinging"); set_col(PG.line, C_CYAN); }
-    else if (strstr(ln, "received")) {           // "5/5 received, 0% loss, min/avg/max 1/2/4 ms"
+    else if (strstr(ln, "received")) {
         set_txt(PG.line, ln); set_col(PG.line, C_DIM);
         char *avg = strstr(ln, "max ");
         int a = 0, b = 0, c = 0;
@@ -1841,9 +1841,9 @@ static void ping_update(void)
     set_txt(PG.btn_lbl, mine ? "PINGING..." : "PING");
 }
 
-// =====================================================================
-// TOOLS: FIND HOSTS (subnet sweep, live count)
-// =====================================================================
+
+
+
 static struct { lv_obj_t *big, *unit, *prog, *line, *btn, *btn_lbl; } HS;
 static void hosts_cb(lv_event_t *e) { (void)e; if (!g.sweep_running) tool_start("sweep", ""); }
 static void hosts_create(void)
@@ -1872,9 +1872,9 @@ static void hosts_update(void)
     set_txt(HS.btn_lbl, g.sweep_running ? "SCANNING..." : busy ? "TOOL BUSY" : "FIND HOSTS");
 }
 
-// =====================================================================
-// TOOLS: SECURITY pages (router, Wi-Fi, DNS, ARP) - one generic renderer
-// =====================================================================
+
+
+
 typedef struct { lv_obj_t *verdict, *bar, *line[6], *btn, *btn_lbl; const char *cmd; struct secres *res; } secpage_t;
 static secpage_t SECP[12];
 
@@ -1932,9 +1932,9 @@ SECPG(8, P_SECSEG,    "SEGMENT",     C_ORANGE, "secseg",    &g.sec_seg,    "PROB
 SECPG(9, P_SECARP,    "ARP TEST",    C_PINK,   "secarp",    &g.sec_arp,    "RUN TEST", secarp)
 SECPG(10, P_BUFFER,   "BUFFERBLOAT", C_CYAN,   "buffer",    &g.sec_buffer, "RUN", buffer)
 
-// =====================================================================
-// shared: tappable settings row "NAME  [value]"
-// =====================================================================
+
+
+
 static lv_obj_t *tap_row(lv_obj_t *t, int y, const char *name, lv_event_cb_t cb, int idx)
 {
     int w = band_w(y, y + 19, 40); if (w > 170) w = 170;
@@ -1962,9 +1962,9 @@ static lv_obj_t *tap_row(lv_obj_t *t, int y, const char *name, lv_event_cb_t cb,
     return v;
 }
 
-// =====================================================================
-// PAGE: BLUETOOTH SETTINGS
-// =====================================================================
+
+
+
 enum { B_ON, B_PIN, B_PHONES, B_ROWS };
 static struct { lv_obj_t *val[B_ROWS], *name, *state, *forget_lbl; uint32_t forget_t; } BT;
 
@@ -1977,7 +1977,7 @@ static void bt_tap(lv_event_t *e)
 static void bt_forget(lv_event_t *e)
 {
     (void)e;
-    // two taps within 3 s, so a brush of the glass can't unpair everyone
+
     uint32_t t = lv_tick_get();
     if (BT.forget_t && t - BT.forget_t < 3000) { BT.forget_t = 0; ble_forget_all(); toast_show(LV_SYMBOL_TRASH "  Phones forgotten", C_AMBER); }
     else BT.forget_t = t ? t : 1;
@@ -2007,9 +2007,9 @@ static void btset_update(void)
     set_txt(BT.forget_lbl, BT.forget_t ? "TAP AGAIN" : "FORGET PHONES");
 }
 
-// =====================================================================
-// PAGE: BLUETOOTH CONNECT (QR -> Bluetooth GUI page)
-// =====================================================================
+
+
+
 static struct { lv_obj_t *qr, *frame, *hint, *name, *sub, *none; char last[100]; } BC;
 
 static void btconn_create(void)
@@ -2057,9 +2057,9 @@ static void btconn_update(void)
     set_col(BC.hint, g.ble_conn ? C_VIOLET : C_DIM);
 }
 
-// =====================================================================
-// Bluetooth PIN overlay - shown on top of any page while a phone pairs
-// =====================================================================
+
+
+
 static lv_obj_t *pin_box, *pin_num;
 static void pin_overlay_update(void)
 {
@@ -2072,7 +2072,7 @@ static void pin_overlay_update(void)
         lv_obj_set_style_bg_opa(pin_box, LV_OPA_COVER, 0);
         lv_obj_set_style_border_width(pin_box, 3, 0);
         lv_obj_set_style_border_color(pin_box, lv_color_hex(C_VIOLET), 0);
-        lv_obj_add_flag(pin_box, LV_OBJ_FLAG_CLICKABLE);       // swallow touches while pairing
+        lv_obj_add_flag(pin_box, LV_OBJ_FLAG_CLICKABLE);
         lv_obj_clear_flag(pin_box, LV_OBJ_FLAG_SCROLLABLE);
         lv_obj_t *ic = mk_label(pin_box, &lv_font_montserrat_28, C_VIOLET, LV_SYMBOL_BLUETOOTH);
         lv_obj_align(ic, LV_ALIGN_TOP_MID, 0, 34);
@@ -2093,10 +2093,10 @@ static void pin_overlay_update(void)
     }
 }
 
-// =====================================================================
-// tileview events + public API
-// =====================================================================
-// Only the visible page and the pages one swipe away exist; the rest are freed.
+
+
+
+
 static void (*const builders[P_COUNT])(void) = {
     [P_HOME] = home_create, [P_DEV] = dev_create, [P_POWER] = power_create, [P_ALERT] = alert_create,
     [P_SWITCH] = switch_create, [P_SWDET] = swdet_create, [P_POE] = poe_create, [P_CABLE] = cable_create,
@@ -2132,7 +2132,7 @@ static void page_build(int p)
     built[p] = true;
 }
 
-// one swipe from page c: up/down in the same column, or (from a column's top) left/right
+
 static bool page_near(int c, int p)
 {
     if (p == c) return true;
@@ -2172,18 +2172,18 @@ static void tv_event_cb(lv_event_t *e)
 
 static void goto_async(void *p) { ui_goto((int)(intptr_t)p, false); }
 
-// left/right swipe on a lower page: jump to the top of the neighbouring column
+
 static void gesture_cb(lv_event_t *e)
 {
     (void)e;
-    if (page_row(cur_page) == 0) return;               // top pages scroll sideways by themselves
+    if (page_row(cur_page) == 0) return;
     lv_dir_t d = lv_indev_get_gesture_dir(lv_indev_get_act());
     int c = page_col(cur_page);
     if (d == LV_DIR_LEFT && c < COL_COUNT - 1) c++;
     else if (d == LV_DIR_RIGHT && c > 0) c--;
     else return;
     lv_indev_wait_release(lv_indev_get_act());
-    lv_async_call(goto_async, (void *)(intptr_t)col_first[c]);   // not while the touched page is in use
+    lv_async_call(goto_async, (void *)(intptr_t)col_first[c]);
 }
 
 void ui_init(void)
@@ -2233,7 +2233,7 @@ void ui_update(void)
 {
     int appearance = cfg.text_size | (cfg.contrast << 1) | (cfg.animations << 2);
     if (appearance != s_display_cfg) {
-        // Apply from the LVGL task, never delete widgets inside their click callback.
+
         s_display_cfg = appearance;
         for (int p = 0; p < P_COUNT; p++) if (built[p]) {
             lv_obj_clean(tiles[p]); built[p] = false; rings[p] = NULL;
@@ -2242,9 +2242,9 @@ void ui_update(void)
         lv_obj_set_style_anim_time(tv, cfg.animations ? 180 : 0, 0);
     }
 
-    // toasts for things that just happened
+
     uint32_t ev = ui_take_events();
-    if (ev) lv_disp_trig_activity(NULL);          // anything worth a toast also wakes the screen
+    if (ev) lv_disp_trig_activity(NULL);
     if (ev & EV_BLE_PAIRED) toast_show(LV_SYMBOL_BLUETOOTH "  Phone paired", C_GREEN);
     else if (ev & EV_BLE_PAIRFAIL) toast_show(LV_SYMBOL_CLOSE "  Pairing failed", C_RED);
     else if (ev & EV_BLE_CONN)   toast_show(LV_SYMBOL_BLUETOOTH "  Phone connected", C_VIOLET);
@@ -2274,7 +2274,7 @@ void ui_update(void)
 
     pin_overlay_update();
 
-    // only the pages that exist (visible + one swipe away) need refreshing
+
     for (int p = 0; p < P_COUNT; p++) if (built[p] && updaters[p]) updaters[p]();
 }
 

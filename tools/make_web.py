@@ -16,7 +16,7 @@ open(os.path.join(root, "src", "web_page.h"), "w", encoding="utf-8").write(out)
 print("web_page.h: %d bytes of HTML" % len(html.encode("utf-8")))
 
 shim = open(os.path.join(root, "web", "ble_shim.html"), encoding="utf-8").read()
-i = html.index("<script>")              # shim must run before the GUI's own script
+i = html.index("<script>")
 ble = html[:i] + shim + "\n" + html[i:]
 ble = ble.replace("<title>NetAlly Buster</title>", "<title>NetAlly Buster (Bluetooth)</title>", 1)
 open(os.path.join(root, "web", "ble.html"), "w", encoding="utf-8").write(ble)

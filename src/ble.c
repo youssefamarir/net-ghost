@@ -1,37 +1,37 @@
-// NetAlly Buster - Bluetooth LE service: the phone GUI over Bluetooth, plus
-// simple JSON characteristics for a future app.
-//
-// Advertises as "NetAlly Buster XXXX" with service c0de0000-4e41-4c4c-5942-555354455221.
-// Characteristics (all under that base, 16-bit part shown):
-//   0x0001 summary  read + notify  compact live JSON, pushed every 2 s
-//   0x0010 link     read           Ethernet / IP / port counters      (first 512 bytes)
-//   0x0011 switch   read           LLDP / CDP / FDP + STP
-//   0x0012 wifi     read           Wi-Fi link + top scan results
-//   0x0014 test     read           AutoTest results
-//   0x0015 device   read           uptime, memory, chip temp, firmware
-//   0x0016 alerts   read           rogue DHCP, IP conflict, storms, duplex mismatch...
-//   0x0017 quality  read           link quality test, speed test, battery
-//   0x0018 settings read           current settings
-//   0x0020 gui      read           {"ssid","pass","url","eth_url","ble_url"}
-//   0x0030 command  write          "autotest" "scan" "blink" "reboot" "quality" "renew"
-//                                  "wspeed" "espeed" "speedstop" "sweep"
-//                                  "wifi=<ssid>\n<pass>" "ping=<host>" "trace=<host>" ...
-//                                  "set=<key>=<value>" (same keys as the web settings)
-//   0x0040 api req  write          GUI tunnel: the web GUI's own /api calls over Bluetooth
-//   0x0041 api resp notify         (framing below; used by web/ble.html)
-//
-// API tunnel framing
-//   request  writes : [flags][id] data...   flags bit0 = last piece.
-//                     data = "GET /api/status" or "POST /api/settings\n<body>"
-//   response notifies: ['H'][id] "<http status>\n<content type>"
-//                      ['D'][id] body bytes...    (as many as needed)
-//                      ['E'][id]                  end of response
-// The tester answers by calling its own web server on 127.0.0.1, so every page of the
-// web GUI works over Bluetooth exactly as it does over Wi-Fi or Ethernet.
-//
-// Security: with "PIN pairing" on (default) every read/write needs an encrypted link that
-// was paired with the 6-digit PIN the tester shows on its screen. Paired phones are
-// remembered (up to 3) until "Forget phones".
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -82,9 +82,9 @@ static uint8_t s_addr_type;
 static bool s_synced;
 static char s_buf[4096];
 
-// ---------------------------------------------------------------------
-// security
-// ---------------------------------------------------------------------
+
+
+
 static void bonds_count(void)
 {
     int n = 0;
@@ -99,9 +99,9 @@ static bool link_ok(uint16_t conn)
     return d.sec_state.encrypted && d.sec_state.authenticated;
 }
 
-// ---------------------------------------------------------------------
-// command characteristic
-// ---------------------------------------------------------------------
+
+
+
 static void handle_cmd(char *c)
 {
     ESP_LOGI(TAG, "cmd: %s", c);
@@ -131,13 +131,13 @@ static void handle_cmd(char *c)
     }
 }
 
-// ---------------------------------------------------------------------
-// GUI tunnel
-// ---------------------------------------------------------------------
+
+
+
 #define API_MAX 2048
-static char s_req[API_MAX + 1];          // being assembled from writes
+static char s_req[API_MAX + 1];
 static int  s_req_len;
-static char s_job[API_MAX + 1];          // handed to the worker
+static char s_job[API_MAX + 1];
 static int  s_job_len;
 static uint8_t s_job_id, s_req_id;
 static volatile bool s_job_new, s_abort;
@@ -160,13 +160,13 @@ static void api_write(const uint8_t *d, int n)
     s_job_len = s_req_len;
     s_job_id = id;
     s_job_new = true;
-    s_abort = true;                       // a newer request replaces one still streaming
+    s_abort = true;
     xSemaphoreGive(s_job_mx);
     s_req_len = 0;
     xTaskNotifyGive(s_api_task);
 }
 
-// one notification on the response characteristic; waits for buffers when the radio is busy
+
 static bool rsp_send(char type, uint8_t id, const void *data, int n)
 {
     for (int tries = 0; tries < 200; tries++) {
@@ -175,7 +175,7 @@ static bool rsp_send(char type, uint8_t id, const void *data, int n)
         struct os_mbuf *om = ble_hs_mbuf_from_flat(hdr, 2);
         if (om && n > 0 && os_mbuf_append(om, data, n) != 0) { os_mbuf_free_chain(om); om = NULL; }
         if (om) {
-            int rc = ble_gatts_notify_custom(s_conn, s_rsp_handle, om);   // always consumes om
+            int rc = ble_gatts_notify_custom(s_conn, s_rsp_handle, om);
             if (rc == 0) return true;
             if (rc != BLE_HS_ENOMEM && rc != BLE_HS_EBUSY) return false;
         }
@@ -194,7 +194,7 @@ static esp_err_t api_http_event(esp_http_client_event_t *e)
 
 static void api_serve(uint8_t id, char *req)
 {
-    // "METHOD /path?query\nbody"
+
     char *body = strchr(req, '\n');
     if (body) *body++ = 0; else body = "";
     char *sp = strchr(req, ' ');
@@ -254,14 +254,14 @@ static void api_task(void *p)
     }
 }
 
-// ---------------------------------------------------------------------
-// GATT
-// ---------------------------------------------------------------------
+
+
+
 static int chr_access(uint16_t conn, uint16_t attr, struct ble_gatt_access_ctxt *ctxt, void *arg)
 {
     (void)attr;
     int which = (int)(intptr_t)arg;
-    if (!link_ok(conn)) return BLE_ATT_ERR_INSUFFICIENT_AUTHEN;   // phone pairs, then retries
+    if (!link_ok(conn)) return BLE_ATT_ERR_INSUFFICIENT_AUTHEN;
     if (ctxt->op == BLE_GATT_ACCESS_OP_READ_CHR) {
         int n = 0;
         switch (which) {
@@ -322,9 +322,9 @@ static const struct ble_gatt_svc_def svcs[] = {
     { 0 },
 };
 
-// ---------------------------------------------------------------------
-// GAP
-// ---------------------------------------------------------------------
+
+
+
 static void adv_start(void);
 
 static void sec_update(uint16_t conn)
@@ -345,14 +345,14 @@ static int gap_event(struct ble_gap_event *ev, void *arg)
             g.ble_mtu = 23;
             ui_post_event(EV_BLE_CONN);
             ESP_LOGI(TAG, "phone connected");
-            // faster link for the GUI: 15-30 ms interval, long packets, 2M PHY when the phone has it
+
             struct ble_gap_upd_params up = { .itvl_min = 12, .itvl_max = 24, .latency = 0,
                                              .supervision_timeout = 400 };
             ble_gap_update_params(s_conn, &up);
             ble_gap_set_data_len(s_conn, 251, 2120);
             ble_gap_set_prefered_le_phy(s_conn, BLE_GAP_LE_PHY_2M_MASK | BLE_GAP_LE_PHY_1M_MASK,
                                         BLE_GAP_LE_PHY_2M_MASK | BLE_GAP_LE_PHY_1M_MASK, 0);
-            if (cfg.ble_pin) ble_gap_security_initiate(s_conn);   // phone shows its PIN prompt now
+            if (cfg.ble_pin) ble_gap_security_initiate(s_conn);
         } else adv_start();
         break;
     case BLE_GAP_EVENT_DISCONNECT:
@@ -387,7 +387,7 @@ static int gap_event(struct ble_gap_event *ev, void *arg)
         else { ui_post_event(EV_BLE_PAIRFAIL); evlog("Bluetooth: pairing failed (%d)", ev->enc_change.status); }
         break;
     case BLE_GAP_EVENT_REPEAT_PAIRING: {
-        // the phone forgot us but we still remember it: drop the old keys and pair again
+
         struct ble_gap_conn_desc d;
         if (ble_gap_conn_find(ev->repeat_pairing.conn_handle, &d) == 0) ble_store_util_delete_peer(&d.peer_id_addr);
         return BLE_GAP_REPEAT_PAIRING_RETRY;
@@ -485,7 +485,7 @@ void ble_start(void)
     ble_hs_cfg.sync_cb = on_sync;
     ble_hs_cfg.reset_cb = on_reset;
     ble_hs_cfg.store_status_cb = ble_store_util_status_rr;
-    // PIN pairing: the tester shows a 6-digit passkey, the phone types it in
+
     ble_hs_cfg.sm_io_cap = BLE_SM_IO_CAP_DISP_ONLY;
     ble_hs_cfg.sm_bonding = 1;
     ble_hs_cfg.sm_mitm = 1;

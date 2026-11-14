@@ -1,10 +1,10 @@
-// =====================================================================
-//  NetAlly Buster  -  handheld network tester on the Waveshare ESP32-S3-ETH
-//  Built on the SENTRY node firmware: keeps the environment gauges, history,
-//  trend warnings, weather, MQTT and switch discovery, and adds AutoTest,
-//  port statistics, Wi-Fi scanner, technician tools, a phone GUI (hotspot +
-//  captive portal) and a Bluetooth LE service for the companion app.
-// =====================================================================
+
+
+
+
+
+
+
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
@@ -36,16 +36,16 @@ static const char *TAG = "buster";
 
 bst_t g;
 
-// module entry points
+
 void eth_start(void);
 void wifi_start(void);
 void ble_start(void);
 void web_start(void);
 void battery_start(void);
 
-// ---------------------------------------------------------------------
-// shared helpers
-// ---------------------------------------------------------------------
+
+
+
 static SemaphoreHandle_t s_lock;
 void bst_lock(void)   { if (s_lock) xSemaphoreTakeRecursive(s_lock, portMAX_DELAY); }
 void bst_unlock(void) { if (s_lock) xSemaphoreGiveRecursive(s_lock); }
@@ -61,9 +61,9 @@ const char *rssi_quality(int r)
     return r >= -55 ? "Excellent" : r >= -67 ? "Good" : r >= -75 ? "Fair" : r >= -85 ? "Weak" : "Very weak";
 }
 
-// ---------------------------------------------------------------------
-// event log (shown in the web GUI and the report)
-// ---------------------------------------------------------------------
+
+
+
 #define EVLOG_N 40
 typedef struct { int64_t ms; time_t epoch; char txt[60]; } ev_t;
 static ev_t s_ev[EVLOG_N];
@@ -88,7 +88,7 @@ int evlog_json(char *out, size_t cap)
     size_t o = snprintf(out, cap, "[");
     bst_lock();
     for (int i = 0; i < s_ev_cnt && o < cap; i++) {
-        ev_t *e = &s_ev[(s_ev_head - 1 - i + EVLOG_N) % EVLOG_N];   // newest first
+        ev_t *e = &s_ev[(s_ev_head - 1 - i + EVLOG_N) % EVLOG_N];
         char tb[12] = "";
         if (e->epoch > 1600000000) { struct tm tm; localtime_r(&e->epoch, &tm); strftime(tb, sizeof(tb), "%H:%M:%S", &tm); }
         char x[80]; json_esc(x, sizeof(x), e->txt);
@@ -103,9 +103,9 @@ static void reboot_task(void *a) { (void)a; vTaskDelay(pdMS_TO_TICKS(800)); esp_
 void device_reboot(void) { xTaskCreate(reboot_task, "reboot", 2048, NULL, 5, NULL); }
 
 
-// ---------------------------------------------------------------------
-// screen task: owns LVGL
-// ---------------------------------------------------------------------
+
+
+
 static void ui_task(void *a)
 {
     (void)a;
@@ -120,7 +120,7 @@ static void ui_task(void *a)
         if (t - last >= 300) {
             last = t;
             ui_update();
-            // screen sleep: dark after cfg.sleep_s idle, any touch wakes it
+
             uint32_t idle = lv_disp_get_inactive_time(NULL);
             if (cfg.sleep_s && g.screen_on && idle > cfg.sleep_s * 1000U) {
                 g.screen_on = false;
@@ -136,9 +136,9 @@ static void ui_task(void *a)
     }
 }
 
-// ---------------------------------------------------------------------
-// device health
-// ---------------------------------------------------------------------
+
+
+
 static void device_task(void *a)
 {
     (void)a;
@@ -173,9 +173,9 @@ static const char *reset_str(esp_reset_reason_t r)
     }
 }
 
-// ---------------------------------------------------------------------
-// MQTT to the SENTRY hub (same topics as before)
-// ---------------------------------------------------------------------
+
+
+
 static esp_mqtt_client_handle_t s_mqtt;
 static char s_topic_data[48], s_topic_status[48];
 
@@ -219,9 +219,9 @@ static void mqtt_start(void)
     xTaskCreate(mqtt_task, "mqtt_pub", 4096, NULL, 2, NULL);
 }
 
-// ---------------------------------------------------------------------
-// weather (OpenWeatherMap, Orlando) - kept from SENTRY
-// ---------------------------------------------------------------------
+
+
+
 #define OWM_LAT "28.54"
 #define OWM_LON "-81.38"
 static char wx_buf[1536];
@@ -270,11 +270,11 @@ static void weather_task(void *a)
     }
 }
 
-// ---------------------------------------------------------------------
+
 static void services_task(void *a)
 {
     (void)a;
-    vTaskDelay(pdMS_TO_TICKS(700));   // let the screen allocate first
+    vTaskDelay(pdMS_TO_TICKS(700));
 #define HEAP(step) ESP_LOGI(TAG, "free heap after %-8s %u (largest block %u)", step, \
         (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL), (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL))
     HEAP("screen");
@@ -310,7 +310,7 @@ void app_main(void)
         nvs_flash_erase();
         nvs_flash_init();
     }
-    // SENTRY kept a 23 KB sensor history blob in NVS; free that space
+
     nvs_handle_t h;
     if (nvs_open("hist", NVS_READWRITE, &h) == ESP_OK) { nvs_erase_all(h); nvs_commit(h); nvs_close(h); }
 
@@ -319,7 +319,7 @@ void app_main(void)
     ESP_ERROR_CHECK(esp_netif_init());
     ESP_ERROR_CHECK(esp_event_loop_create_default());
 
-    // screen first so the splash plays while everything else starts
+
     xTaskCreatePinnedToCore(ui_task, "ui", 8192, NULL, 5, NULL, 1);
     xTaskCreatePinnedToCore(services_task, "svc", 6144, NULL, 4, NULL, 0);
 }

@@ -48,7 +48,7 @@ bool poe_cdp(poe_info_t *p, uint16_t type, const uint8_t *v, size_t n)
 {
     if (type == 0x0010 && n >= 2) p->cdp_used_mw = (int)u16(v);
     else if (type == 0x001a && n >= 8) {
-        uint32_t value = u32(v + 4); // request ID (2), management ID (2), available (4)
+        uint32_t value = u32(v + 4);
         if (value > INT_MAX) return false;
         p->cdp_available_mw = (int)value;
     } else return false;

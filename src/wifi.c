@@ -1,5 +1,5 @@
-// NetAlly Buster - Wi-Fi: station link, site scanner, and the phone hotspot.
-// The hotspot runs a captive portal so a phone that joins it opens the GUI by itself.
+
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -61,9 +61,9 @@ static bool placeholder(const char *s)
     return !s || !s[0] || strstr(s, "your-") == s;
 }
 
-// ---------------------------------------------------------------------
-// credentials (NVS wins over secrets.h so a tech can change sites from the phone)
-// ---------------------------------------------------------------------
+
+
+
 static void creds_load(void)
 {
     nvs_handle_t h;
@@ -109,9 +109,9 @@ void wifi_set_credentials(const char *ssid, const char *pass)
     s_next_try = now_ms() + 500;
 }
 
-// ---------------------------------------------------------------------
-// scanning
-// ---------------------------------------------------------------------
+
+
+
 void wifi_scan_start(void) { s_scan_req = true; }
 
 static void scan_collect(void)
@@ -121,7 +121,7 @@ static void scan_collect(void)
     if (n > 40) n = 40;
     wifi_ap_record_t *r = calloc(n ? n : 1, sizeof(wifi_ap_record_t));
     if (!r) { esp_wifi_clear_ap_list(); g.scanning = false; return; }
-    esp_wifi_scan_get_ap_records(&n, r);   // already sorted strongest first
+    esp_wifi_scan_get_ap_records(&n, r);
     bst_lock();
     memset(g.chan_cnt, 0, sizeof(g.chan_cnt));
     int k = 0;
@@ -158,9 +158,9 @@ static void do_scan(void)
     }
 }
 
-// ---------------------------------------------------------------------
-// events
-// ---------------------------------------------------------------------
+
+
+
 static void wifi_event(void *arg, esp_event_base_t base, int32_t id, void *data)
 {
     (void)arg; (void)base;
@@ -174,7 +174,7 @@ static void wifi_event(void *arg, esp_event_base_t base, int32_t id, void *data)
         g.w_ip[0] = g.w_gw[0] = g.w_mask[0] = g.w_dns[0] = 0;
         if (data) g.w_disconnect_reason = ((wifi_event_sta_disconnected_t *)data)->reason;
         g.w_reconnects++;
-        s_next_try = now_ms() + s_backoff;          // reconnect with backoff
+        s_next_try = now_ms() + s_backoff;
         s_backoff = s_backoff * 2 > 30000 ? 30000 : s_backoff * 2;
         break;
     case WIFI_EVENT_SCAN_DONE:
@@ -214,9 +214,9 @@ static void sta_got_ip(void *arg, esp_event_base_t base, int32_t id, void *data)
     evlog("Wi-Fi connected (%s)", g.w_ip);
 }
 
-// ---------------------------------------------------------------------
-// captive portal DNS: every name resolves to the hotspot address
-// ---------------------------------------------------------------------
+
+
+
 static void dns_task(void *a)
 {
     (void)a;
@@ -234,14 +234,14 @@ static void dns_task(void *a)
         struct sockaddr_in from; socklen_t fl = sizeof(from);
         int n = recvfrom(s, buf, sizeof(buf) - 16, 0, (struct sockaddr *)&from, &fl);
         if (n < 12) continue;
-        // find end of the first question
+
         int q = 12;
         while (q < n && buf[q]) q += buf[q] + 1;
-        q += 5;   // zero byte + qtype + qclass
+        q += 5;
         if (q > n) continue;
         uint16_t qtype = (buf[q - 4] << 8) | buf[q - 3];
-        buf[2] = 0x81; buf[3] = 0x80;              // response, recursion available
-        buf[6] = 0; buf[7] = (qtype == 1) ? 1 : 0;  // answers
+        buf[2] = 0x81; buf[3] = 0x80;
+        buf[6] = 0; buf[7] = (qtype == 1) ? 1 : 0;
         buf[8] = buf[9] = buf[10] = buf[11] = 0;
         int len = q;
         if (qtype == 1) {
@@ -254,14 +254,14 @@ static void dns_task(void *a)
     }
 }
 
-// ---------------------------------------------------------------------
-// 1 s housekeeping: RSSI, reconnects, periodic scans
-// ---------------------------------------------------------------------
+
+
+
 static void wifi_task(void *a)
 {
     (void)a;
     vTaskDelay(pdMS_TO_TICKS(3000));
-    s_scan_req = true;                         // first scan shortly after boot
+    s_scan_req = true;
     while (1) {
         int64_t t = now_ms();
         if (g.wifi_conn) {
@@ -294,17 +294,17 @@ static void wifi_task(void *a)
         memmove(g.rssi_hist, g.rssi_hist + 1, sizeof(g.rssi_hist) - 1);
         g.rssi_hist[sizeof(g.rssi_hist) - 1] = g.wifi_conn ? (int8_t)g.w_rssi : -100;
 
-        // auto scan every 2 min while no phone is on the hotspot (scans make the AP hop channels)
+
         if (!g.wifi_speed.running && !g.eth_speedtest.running && !g.scanning && (s_scan_req || (g.ap_clients == 0 && t - s_last_scan > 120000))) {
             s_scan_req = false;
             do_scan();
         }
-        if (g.scanning && t - s_last_scan > 8000) g.scanning = false;   // safety
+        if (g.scanning && t - s_last_scan > 8000) g.scanning = false;
         vTaskDelay(pdMS_TO_TICKS(1000));
     }
 }
 
-// hotspot on/off from Settings
+
 void wifi_hotspot_apply(void)
 {
     wifi_mode_t m;
@@ -317,7 +317,7 @@ void wifi_hotspot_apply(void)
     }
 }
 
-// ---------------------------------------------------------------------
+
 void wifi_start(void)
 {
     g_sta_netif = esp_netif_create_default_wifi_sta();
@@ -350,7 +350,7 @@ void wifi_start(void)
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &ap));
     sta_apply();
 
-    // hotspot hands out itself as DNS + the captive-portal URL (DHCP option 114)
+
     esp_netif_ip_info_t ip;
     esp_netif_get_ip_info(g_ap_netif, &ip);
     snprintf(g.ap_ip, sizeof(g.ap_ip), IPSTR, IP2STR(&ip.ip));
@@ -359,7 +359,7 @@ void wifi_start(void)
     esp_netif_dns_info_t dns = {0};
     dns.ip.u_addr.ip4.addr = ip.ip.addr;
     dns.ip.type = ESP_IPADDR_TYPE_V4;
-    uint8_t offer = 1;   // OFFER_DNS
+    uint8_t offer = 1;
     esp_netif_dhcps_stop(g_ap_netif);
     esp_netif_dhcps_option(g_ap_netif, ESP_NETIF_OP_SET, ESP_NETIF_DOMAIN_NAME_SERVER, &offer, sizeof(offer));
     esp_netif_dhcps_option(g_ap_netif, ESP_NETIF_OP_SET, ESP_NETIF_CAPTIVEPORTAL_URI, portal_uri, strlen(portal_uri));

@@ -1,4 +1,4 @@
-// NetAlly Buster - GC9A01 round LCD (DMA, async flush) + CST816S touch + LVGL port
+
 #include <string.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -16,10 +16,10 @@
 
 static const char *TAG = "disp";
 
-// ---------------- panel ----------------
+
 typedef struct { uint8_t cmd; uint8_t data[12]; uint8_t len; uint16_t delay_ms; } lcd_init_t;
 
-// exact register sequence from the SENTRY firmware (known good on this panel)
+
 static const lcd_init_t gc9a01_init[] = {
     {0xEF, {0}, 0, 0},
     {0xEB, {0x14}, 1, 0},
@@ -82,7 +82,7 @@ static bool color_done(esp_lcd_panel_io_handle_t io, esp_lcd_panel_io_event_data
 {
     (void)io; (void)e;
     lv_disp_drv_t *d = (lv_disp_drv_t *)ctx;
-    if (d->draw_buf) lv_disp_flush_ready(d);      // ignore the boot-time clear transfers
+    if (d->draw_buf) lv_disp_flush_ready(d);
     return false;
 }
 
@@ -94,10 +94,10 @@ static void flush_cb(lv_disp_drv_t *drv, const lv_area_t *a, lv_color_t *px)
     esp_lcd_panel_io_tx_param(s_io, 0x2A, ca, 4);
     esp_lcd_panel_io_tx_param(s_io, 0x2B, ra, 4);
     size_t n = (size_t)(a->x2 - a->x1 + 1) * (a->y2 - a->y1 + 1) * 2;
-    esp_lcd_panel_io_tx_color(s_io, 0x2C, px, n);   // finishes in color_done()
+    esp_lcd_panel_io_tx_color(s_io, 0x2C, px, n);
 }
 
-// ---------------- touch ----------------
+
 static i2c_master_bus_handle_t s_tp_bus;
 static i2c_master_dev_handle_t s_tp;
 
@@ -125,7 +125,7 @@ static void touch_cb(lv_indev_drv_t *drv, lv_indev_data_t *data)
 
 static void tick_cb(void *a) { (void)a; lv_tick_inc(2); }
 
-// backlight PWM (0 = off)
+
 static bool s_pwm;
 void display_set_brightness(int pct)
 {
@@ -139,7 +139,7 @@ void display_set_brightness(int pct)
 
 void display_init(void)
 {
-    // backlight + reset
+
     gpio_config_t io = { .mode = GPIO_MODE_OUTPUT, .pin_bit_mask = (1ULL << LCD_RST) | (1ULL << LCD_BL) };
     gpio_config(&io);
     gpio_set_level(LCD_BL, 0);
@@ -166,7 +166,7 @@ void display_init(void)
         if (c->delay_ms) vTaskDelay(pdMS_TO_TICKS(c->delay_ms));
     }
 
-    // clear to black before the backlight comes on
+
     size_t bsz = LCD_W * BUF_LINES * sizeof(lv_color_t);
     lv_color_t *b1 = heap_caps_malloc(bsz, MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL);
     lv_color_t *b2 = heap_caps_malloc(bsz, MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL);
@@ -189,7 +189,7 @@ void display_init(void)
     s_drv.draw_buf = &s_buf;
     lv_disp_drv_register(&s_drv);
 
-    // touch
+
     gpio_config_t tr = { .mode = GPIO_MODE_OUTPUT, .pin_bit_mask = 1ULL << TP_RST };
     gpio_config(&tr);
     gpio_set_level(TP_RST, 0); vTaskDelay(pdMS_TO_TICKS(20));

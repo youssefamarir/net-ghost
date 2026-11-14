@@ -1,6 +1,6 @@
-<!-- Bluetooth transport for the Net Ghost GUI.
-     tools/make_web.py inserts this into web/index.html to make web/ble.html.
-     The GUI's own fetch('/api/...') calls are carried over Bluetooth LE to the tester. -->
+
+
+
 <style>
 #bt-ov{position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;padding:20px;
   background:radial-gradient(circle at 50% 30%,#1d3550 0,#0d1620 70%)}
@@ -57,7 +57,7 @@ function onNote(e){
     p.resolve(new Response(new Blob(p.parts,{type:p.type}),{status:s,headers:{'Content-Type':p.type}}))}
 }
 
-// one request at a time; each is written in pieces: [flags][id] data (flags bit0 = last piece)
+
 function send(text){
   const job=chain.then(()=>new Promise(async(resolve,reject)=>{
     if(!ready||!reqC){reject(new TypeError('Bluetooth not connected'));return}
@@ -85,7 +85,7 @@ window.fetch=(u,o={})=>{
   return send(m+' '+url+(m==='POST'?'\n'+body:''));
 };
 
-// downloads (pcap, report) go over Bluetooth too
+
 document.addEventListener('click',e=>{
   const a=e.target.closest&&e.target.closest('a[href^="/api/"]');if(!a)return;
   e.preventDefault();
@@ -105,7 +105,7 @@ async function open(){
   rspC.addEventListener('characteristicvaluechanged',onNote);
   await rspC.startNotifications();
   ready=true;
-  // the first request fails until the phone has paired with the PIN; keep trying for a minute
+
   status('If asked, type the PIN shown on the tester',true);
   for(let i=0;i<30;i++){
     try{const r=await window.fetch('/api/settings');if(r.ok)break}catch(e){}

@@ -1,4 +1,4 @@
-// Advertisement decoder only. These are NOT electrical measurements.
+
 #pragma once
 #include <stdbool.h>
 #include <stddef.h>
